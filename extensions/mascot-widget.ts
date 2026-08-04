@@ -87,6 +87,10 @@ export function isMascotPreferences(value: unknown): value is MascotPreferences 
   );
 }
 
+export function isMascotAnimatedState(state: MascotState): boolean {
+  return state === "thinking" || state === "working";
+}
+
 export function parseMascotCommand(args: string): MascotCommand {
   const tokens = args.trim() ? args.trim().split(/\s+/) : [];
   const [action, value] = tokens;
@@ -153,6 +157,7 @@ export default function (pi: ExtensionAPI): void {
   let state: MascotState = "idle";
   let lastToolFailed = false;
   let requestRender: (() => void) | undefined;
+  let setSparkleAnimation: ((active: boolean) => void) | undefined;
 
   const persistPreferences = (): void => {
     pi.appendEntry<MascotPreferences>(MASCOT_PREFERENCES_TYPE, {
@@ -177,6 +182,7 @@ export default function (pi: ExtensionAPI): void {
     enabled = next.enabled;
     showLabel = next.showLabel;
     gap = next.gap;
+    setSparkleAnimation?.(enabled && isMascotAnimatedState(state));
     requestRender?.();
     persistPreferences();
     return true;
@@ -197,20 +203,34 @@ export default function (pi: ExtensionAPI): void {
   const setState = (nextState: MascotState): void => {
     if (state === nextState) return;
     state = nextState;
+    setSparkleAnimation?.(enabled && isMascotAnimatedState(state));
     requestRender?.();
   };
 
   const installWidget = (ctx: ExtensionContext): void => {
     ctx.ui.setWidget("mascot", (tui, theme) => {
       let sparkleIndex = 0;
+      let sparkleTimer: ReturnType<typeof setInterval> | undefined;
       const renderRequest = (): void => tui.requestRender();
-      const sparkleTimer = setInterval(() => {
-        if (!enabled) return;
-        sparkleIndex = (sparkleIndex + 1) % MASCOT_SPARKLE_FRAMES.length;
-        renderRequest();
-      }, MASCOT_SPARKLE_INTERVAL_MS);
-      const timerWithUnref = sparkleTimer as unknown as { unref?: () => void };
-      timerWithUnref.unref?.();
+      const stopSparkle = (): void => {
+        if (sparkleTimer === undefined) return;
+        clearInterval(sparkleTimer);
+        sparkleTimer = undefined;
+        sparkleIndex = 0;
+      };
+      const startSparkle = (): void => {
+        if (sparkleTimer !== undefined) return;
+        sparkleTimer = setInterval(() => {
+          sparkleIndex = (sparkleIndex + 1) % MASCOT_SPARKLE_FRAMES.length;
+          renderRequest();
+        }, MASCOT_SPARKLE_INTERVAL_MS);
+        const timerWithUnref = sparkleTimer as unknown as { unref?: () => void };
+        timerWithUnref.unref?.();
+      };
+      setSparkleAnimation = (active) => {
+        if (active) startSparkle();
+        else stopSparkle();
+      };
       requestRender = renderRequest;
 
       return {
@@ -225,7 +245,8 @@ export default function (pi: ExtensionAPI): void {
             : [],
         invalidate(): void {},
         dispose(): void {
-          clearInterval(sparkleTimer);
+          stopSparkle();
+          setSparkleAnimation = undefined;
           if (requestRender === renderRequest) requestRender = undefined;
         },
       };

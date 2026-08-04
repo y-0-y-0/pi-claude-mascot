@@ -12,6 +12,7 @@ import registerMascot, {
   MASCOT_STATE_COLORS,
   PI_CODE_ART,
   formatMascotStatus,
+  isMascotAnimatedState,
   isMascotPreferences,
   normalizeGap,
   parseMascotCommand,
@@ -125,6 +126,52 @@ test("renders requested sparkle frame and exposes animation timing", () => {
     renderMascot((text) => text, { showLabel: false, sparkle: "✽" })[0],
     ` ${MASCOT_ART[0]}✽`,
   );
+});
+
+test("animates only during thinking or working states", async () => {
+  assert.equal(isMascotAnimatedState("idle"), false);
+  assert.equal(isMascotAnimatedState("thinking"), true);
+  assert.equal(isMascotAnimatedState("working"), true);
+  assert.equal(isMascotAnimatedState("success"), false);
+  assert.equal(isMascotAnimatedState("error"), false);
+
+  let sessionStart: MascotHandler | undefined;
+  let widgetFactory: ((tui: { requestRender(): void }, theme: MascotTheme) => MascotWidget) | undefined;
+  const events = new Map<string, MascotHandler>();
+  let renderRequests = 0;
+  const pi = {
+    registerCommand(): void {},
+    on(event: string, handler: MascotHandler): void {
+      events.set(event, handler);
+      if (event === "session_start") sessionStart = handler;
+    },
+  } as unknown as ExtensionAPI;
+
+  registerMascot(pi);
+  sessionStart?.({}, {
+    ui: {
+      setWidget(_key, factory): void {
+        widgetFactory = factory;
+      },
+      notify(): void {},
+    },
+    sessionManager: { getBranch: () => [] },
+  });
+  assert.ok(widgetFactory);
+  const widget = widgetFactory({ requestRender: () => renderRequests++ }, { fg: (_color, text) => text });
+
+  await new Promise((resolve) => setTimeout(resolve, MASCOT_SPARKLE_INTERVAL_MS + 30));
+  assert.equal(renderRequests, 0);
+
+  events.get("agent_start")?.({}, {} as MascotContext);
+  await new Promise((resolve) => setTimeout(resolve, MASCOT_SPARKLE_INTERVAL_MS + 30));
+  assert.ok(renderRequests > 0);
+
+  events.get("agent_end")?.({}, {} as MascotContext);
+  const requestsAfterIdle = renderRequests;
+  await new Promise((resolve) => setTimeout(resolve, MASCOT_SPARKLE_INTERVAL_MS + 30));
+  assert.equal(renderRequests, requestsAfterIdle);
+  widget.dispose?.();
 });
 
 test("normalizes configurable gap safely", () => {
@@ -291,6 +338,7 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   await command.handler("status", context);
   assert.equal(notifications.at(-1)?.message, "Mascot: enabled; PI CODE label: enabled; Gap: 2; State: error");
 
+  widget.dispose?.();
   sessionStart({}, {
     ...context,
     sessionManager: {

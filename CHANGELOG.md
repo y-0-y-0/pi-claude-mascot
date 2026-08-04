@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0 - 2026-08-04
+
+- Limited sparkle animation to active `thinking` and `working` states.
+- Kept sparkle fixed at `·` while idle, after success, and after error.
+- Added state-aware timer start/stop regression coverage.
+
 ## 1.4.0 - 2026-08-04
 
 - Added animated sparkle after mascot first row.
