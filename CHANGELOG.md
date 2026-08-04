@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.9 - 2026-08-04
+
+- Added `/mascot` visibility toggle.
+- Added `/mascot-label` toggle for fixed `PI CODE` text.
+- Added `/mascot-gap 0-8` spacing control.
+- Deliberately excluded custom label text.
+
 ## 1.0.8 - 2026-08-04
 
 - Replaced generated font with supplied three-row `PI CODE` artwork.

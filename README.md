@@ -24,6 +24,16 @@ pi -e ./extensions/mascot-widget.ts
 
 Mascot keeps fixed pixel geometry beside supplied three-row `PI CODE` artwork. Both use matching block characters, with no crop or animation.
 
+## Commands
+
+```text
+/mascot             Toggle mascot
+/mascot-label       Toggle PI CODE label
+/mascot-gap 0-8     Set spacing between mascot and label
+```
+
+Custom label text is intentionally not supported.
+
 ## Theme-aware color
 
 Mascot uses semantic Pi color `accent` through `theme.fg("accent", text)`. Color is recalculated during rendering, so mascot follows active Pi theme without hardcoded ANSI escapes or hex colors.
