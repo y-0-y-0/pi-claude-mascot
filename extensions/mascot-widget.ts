@@ -59,38 +59,41 @@ export default function (pi: ExtensionAPI): void {
   };
 
   pi.registerCommand("mascot", {
-    description: "Toggle Pi mascot visibility",
-    handler: async (_args, ctx) => {
-      enabled = !enabled;
-      if (enabled) {
-        installWidget(ctx);
-      } else {
-        ctx.ui.setWidget("mascot", undefined);
-      }
-      ctx.ui.notify(`Mascot ${enabled ? "enabled" : "disabled"}`, "info");
-    },
-  });
-
-  pi.registerCommand("mascot-label", {
-    description: "Toggle PI CODE label",
-    handler: async (_args, ctx) => {
-      showLabel = !showLabel;
-      if (enabled) installWidget(ctx);
-      ctx.ui.notify(`PI CODE label ${showLabel ? "enabled" : "disabled"}`, "info");
-    },
-  });
-
-  pi.registerCommand("mascot-gap", {
-    description: "Set mascot-to-label gap from 0 to 8 spaces",
+    description: "Control mascot: toggle, label, or gap",
     handler: async (args, ctx) => {
-      const value = Number(args.trim());
-      if (!Number.isInteger(value) || value < 0 || value > MAX_GAP) {
-        ctx.ui.notify("Usage: /mascot-gap 0-8", "error");
+      const [action, value] = args.trim().split(/\s+/, 2);
+
+      if (!action) {
+        enabled = !enabled;
+        if (enabled) {
+          installWidget(ctx);
+        } else {
+          ctx.ui.setWidget("mascot", undefined);
+        }
+        ctx.ui.notify(`Mascot ${enabled ? "enabled" : "disabled"}`, "info");
         return;
       }
-      gap = value;
-      if (enabled) installWidget(ctx);
-      ctx.ui.notify(`Mascot gap: ${gap}`, "info");
+
+      if (action === "label") {
+        showLabel = !showLabel;
+        if (enabled) installWidget(ctx);
+        ctx.ui.notify(`PI CODE label ${showLabel ? "enabled" : "disabled"}`, "info");
+        return;
+      }
+
+      if (action === "gap") {
+        const nextGap = Number(value);
+        if (!Number.isInteger(nextGap) || nextGap < 0 || nextGap > MAX_GAP) {
+          ctx.ui.notify("Usage: /mascot gap 0-8", "error");
+          return;
+        }
+        gap = nextGap;
+        if (enabled) installWidget(ctx);
+        ctx.ui.notify(`Mascot gap: ${gap}`, "info");
+        return;
+      }
+
+      ctx.ui.notify("Usage: /mascot [label|gap 0-8]", "error");
     },
   });
 

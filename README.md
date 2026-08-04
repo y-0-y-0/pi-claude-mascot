@@ -28,8 +28,8 @@ Mascot keeps fixed pixel geometry beside supplied three-row `PI CODE` artwork. B
 
 ```text
 /mascot             Toggle mascot
-/mascot-label       Toggle PI CODE label
-/mascot-gap 0-8     Set spacing between mascot and label
+/mascot label       Toggle PI CODE label
+/mascot gap 0-8     Set spacing between mascot and label
 ```
 
 Custom label text is intentionally not supported.

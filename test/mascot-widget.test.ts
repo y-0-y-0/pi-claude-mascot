@@ -39,9 +39,12 @@ const EXPECTED_LINES = [
 test("registers mascot widget on session_start with default placement", () => {
   let sessionStart: SessionStartHandler | undefined;
   let widgetFactory: ((tui: unknown, theme: MascotTheme) => MascotWidget) | undefined;
+  const registeredCommands: string[] = [];
 
   const pi = {
-    registerCommand(_name: string, _definition: unknown): void {},
+    registerCommand(name: string, _definition: unknown): void {
+      registeredCommands.push(name);
+    },
     on(event: string, handler: SessionStartHandler): void {
       assert.equal(event, "session_start");
       sessionStart = handler;
@@ -49,6 +52,7 @@ test("registers mascot widget on session_start with default placement", () => {
   } as unknown as ExtensionAPI;
 
   registerMascot(pi);
+  assert.deepEqual(registeredCommands, ["mascot"]);
   assert.ok(sessionStart);
 
   sessionStart({}, {

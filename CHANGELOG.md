@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.10 - 2026-08-04
+
+- Consolidated mascot controls into single `/mascot` command.
+- Added subcommands `label` and `gap 0-8`.
+- Removed duplicate `/mascot-label` and `/mascot-gap` commands.
+
 ## 1.0.9 - 2026-08-04
 
 - Added `/mascot` visibility toggle.
