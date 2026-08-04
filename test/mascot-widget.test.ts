@@ -12,7 +12,6 @@ import registerMascot, {
   MASCOT_PREFERENCES_TYPE,
   MASCOT_SPARKLE_FRAMES,
   MASCOT_SPARKLE_INTERVAL_MS,
-  MASCOT_TOP_PADDING_LINES,
   MASCOT_USAGE,
   MASCOT_STATE_COLORS,
   PI_CODE_ART,
@@ -66,11 +65,6 @@ const EXPECTED_LINES = [
   `${MASCOT_ART[1]}  ${PI_CODE_ART[1]}`,
   `  ${MASCOT_ART[2]}    ${PI_CODE_ART[2]}`,
 ];
-const EXPECTED_WIDGET_LINES = [
-  ...Array.from({ length: MASCOT_TOP_PADDING_LINES }, () => ""),
-  ...EXPECTED_LINES,
-];
-
 test("registers mascot widget on session_start with default placement", () => {
   let sessionStart: MascotHandler | undefined;
   let widgetFactory: ((tui: { requestRender(): void }, theme: MascotTheme) => MascotWidget) | undefined;
@@ -110,7 +104,7 @@ test("registers mascot widget on session_start with default placement", () => {
     },
   });
 
-  assert.deepEqual(widget.render(80), EXPECTED_WIDGET_LINES);
+  assert.deepEqual(widget.render(80), EXPECTED_LINES);
   assert.doesNotThrow(() => widget.invalidate());
   widget.dispose?.();
   assert.ok(events.has("agent_start"));
@@ -118,10 +112,11 @@ test("registers mascot widget on session_start with default placement", () => {
   assert.ok(events.has("agent_end"));
 });
 
-test("renders supplied three-row PI CODE artwork beside mascot", () => {
+test("renders supplied three-row PI CODE artwork beside mascot at matching height", () => {
   const lines = renderMascot((text) => text);
 
   assert.deepEqual(lines, EXPECTED_LINES);
+  assert.equal(lines.length, MASCOT_ART.length);
   assert.equal(MASCOT_ART.length, PI_CODE_ART.length);
   assert.equal(MASCOT_ART.length, 3);
   assert.equal(PI_CODE_ART.length, 3);
@@ -141,7 +136,6 @@ test("renders supplied three-row PI CODE artwork beside mascot", () => {
 
 test("renders requested sparkle frame and exposes animation timing", () => {
   assert.equal(MASCOT_SPARKLE_INTERVAL_MS, 120);
-  assert.equal(MASCOT_TOP_PADDING_LINES, 1);
   assert.deepEqual(MASCOT_SPARKLE_FRAMES, ["·", "✢", "✶", "✻", "✽", "✻", "✶", "✢", "·"]);
   assert.equal(
     renderMascot((text) => text, { showLabel: false, sparkle: "✽" })[0],
@@ -278,7 +272,6 @@ test("persists preferences globally for new sessions", async () => {
   assert.ok(widgetFactory);
   const widget = widgetFactory({ requestRender(): void {} }, { fg: (_color, text) => text });
   assert.deepEqual(widget.render(80), [
-    ...Array.from({ length: MASCOT_TOP_PADDING_LINES }, () => ""),
     ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`,
     MASCOT_ART[1],
     `  ${MASCOT_ART[2]}  `,
@@ -371,7 +364,6 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   assert.equal(requestRenderCount, 4);
   assert.equal(widgetInstallCount, 1);
   assert.deepEqual(widget.render(80), [
-    ...Array.from({ length: MASCOT_TOP_PADDING_LINES }, () => ""),
     ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`,
     MASCOT_ART[1],
     `  ${MASCOT_ART[2]}  `,
@@ -398,7 +390,7 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   events.get("agent_start")?.({}, context);
   renderedColors.length = 0;
   assert.equal(
-    widget.render(80)[MASCOT_TOP_PADDING_LINES],
+    widget.render(80)[0],
     ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`,
   );
   assert.equal(renderedColors.every((color) => color === "thinkingText"), true);
@@ -447,7 +439,6 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
     },
   });
   assert.deepEqual(restoredWidget.render(80), [
-    ...Array.from({ length: MASCOT_TOP_PADDING_LINES }, () => ""),
     ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`,
     MASCOT_ART[1],
     `  ${MASCOT_ART[2]}  `,

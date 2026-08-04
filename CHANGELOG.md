@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.9.0 - 2026-08-04
+
+- Removed the extra top-padding row from widget output.
+- Kept mascot and `PI CODE` artwork aligned side by side at the same three-row height.
+- Updated rendering regression coverage for the exact three-row output.
+- Documented isolated local Pi launches to prevent duplicate global extension widgets.
+
 ## 1.8.1 - 2026-08-04
 
 - Moved widget output one terminal row lower with one blank top-padding line.

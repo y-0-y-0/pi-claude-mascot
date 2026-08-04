@@ -23,7 +23,6 @@ export const MASCOT_GLOBAL_PREFERENCES_ENV = "PI_CLAUDE_MASCOT_PREFERENCES_PATH"
 export const MASCOT_USAGE = "Usage: /mascot [on|off|label [on|off]|gap 0-8|status|reset|help]";
 export const MASCOT_SPARKLE_FRAMES = ["·", "✢", "✶", "✻", "✽", "✻", "✶", "✢", "·"] as const;
 export const MASCOT_SPARKLE_INTERVAL_MS = 120;
-export const MASCOT_TOP_PADDING_LINES = 1;
 export const MASCOT_HELP = [
   "/mascot             Toggle mascot",
   "/mascot on|off      Enable or disable mascot",
@@ -334,14 +333,11 @@ export default function (pi: ExtensionAPI): void {
         // State and sparkle frame are read during every render.
         render: (_width: number): string[] =>
           enabled
-            ? [
-                ...Array.from({ length: MASCOT_TOP_PADDING_LINES }, () => ""),
-                ...renderMascot((text) => theme.fg(MASCOT_STATE_COLORS[state], text), {
-                  showLabel,
-                  gap,
-                  sparkle: MASCOT_SPARKLE_FRAMES[sparkleIndex],
-                }),
-              ]
+            ? renderMascot((text) => theme.fg(MASCOT_STATE_COLORS[state], text), {
+                showLabel,
+                gap,
+                sparkle: MASCOT_SPARKLE_FRAMES[sparkleIndex],
+              })
             : [],
         invalidate(): void {},
         dispose(): void {

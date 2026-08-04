@@ -1,6 +1,6 @@
 # pi-claude-mascot
 
-Theme-aware pixel-art mascot widget for [Pi](https://pi.dev/). Displays small mascot above editor, aligned left, with one empty line of top spacing.
+Theme-aware pixel-art mascot widget for [Pi](https://pi.dev/). Displays small mascot above editor, aligned left.
 
 ## Install
 
@@ -11,15 +11,14 @@ pi install npm:pi-claude-mascot
 Test local package before publishing:
 
 ```bash
-pi -e ./extensions/mascot-widget.ts
+pi --no-extensions -e ./extensions/mascot-widget.ts
 ```
 
 ## Mascot
 
-Widget leaves one empty line above mascot so it sits one terminal row lower without changing artwork geometry or sparkle animation.
+Mascot and supplied `PI CODE` artwork always render side by side at the same three-row height.
 
 ```text
-
  ▐▛███▜▌·  ▄▄▄▄  ▄▄    ▄▄▄▄  ▄▄▄  ▄▄▄▄  ▄▄▄▄▄
 ▝▜█████▛▘  ██▄█▀ ██   ██▀▀▀ ██▀██ ██▀██ ██▄▄
   ▘▘ ▝▝    ██    ██   ▀████ ▀███▀ ████▀ ██▄▄▄
@@ -79,8 +78,10 @@ Requires Node.js 22+, matching current Pi runtime.
 ```bash
 npm test
 npm run pack:check
-pi -e ./extensions/mascot-widget.ts -p ""
+pi --no-extensions -e ./extensions/mascot-widget.ts -p ""
 ```
+
+Use `--no-extensions` when testing the local extension so an installed global copy cannot register the same widget a second time.
 
 Reference image: https://x.com/EricBuess/status/1973392076550123946
 
