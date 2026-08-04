@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.1 - 2026-08-04
+
+- Moved widget output one terminal row lower with one blank top-padding line.
+- Kept sparkle animation, fixed artwork geometry, and hidden-state output unchanged.
+- Hardened global preference writes with exclusive random temporary files and restrictive permissions.
+- Fixed parallel tool state tracking so an early failure cannot be overwritten by a later success.
+- Marked provider/API agent failures and aborts as mascot errors instead of false successes.
+- Preference writes clean up temporary files after partial-write failures.
+
 ## 1.8.0 - 2026-08-04
 
 - Replaced `PI CODE` artwork with compact supplied three-row Unicode artwork.

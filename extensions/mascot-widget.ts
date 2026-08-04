@@ -2,8 +2,17 @@
 // Source: https://pi.dev/docs/latest/extensions
 // La mascotte reprend automatiquement les couleurs sémantiques du thème Pi courant.
 
+import { randomBytes } from "node:crypto";
 import { homedir } from "node:os";
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext, ThemeColor } from "@earendil-works/pi-coding-agent";
 
@@ -14,6 +23,7 @@ export const MASCOT_GLOBAL_PREFERENCES_ENV = "PI_CLAUDE_MASCOT_PREFERENCES_PATH"
 export const MASCOT_USAGE = "Usage: /mascot [on|off|label [on|off]|gap 0-8|status|reset|help]";
 export const MASCOT_SPARKLE_FRAMES = ["·", "✢", "✶", "✻", "✽", "✻", "✶", "✢", "·"] as const;
 export const MASCOT_SPARKLE_INTERVAL_MS = 120;
+export const MASCOT_TOP_PADDING_LINES = 1;
 export const MASCOT_HELP = [
   "/mascot             Toggle mascot",
   "/mascot on|off      Enable or disable mascot",
@@ -112,18 +122,59 @@ export function writeGlobalPreferences(
   preferences: MascotPreferences,
   filePath = getGlobalPreferencesPath(),
 ): void {
+  if (!isMascotPreferences(preferences)) return;
+
+  let temporaryPath: string | undefined;
+  let temporaryFileDescriptor: number | undefined;
+  let temporaryFileCreated = false;
+
   try {
-    mkdirSync(dirname(filePath), { recursive: true });
-    const temporaryPath = `${filePath}.${process.pid}.tmp`;
-    writeFileSync(temporaryPath, `${JSON.stringify(preferences, null, 2)}\n`, "utf8");
-    renameSync(temporaryPath, filePath);
+    const generatedTemporaryPath = `${filePath}.${process.pid}.${randomBytes(16).toString("hex")}.tmp`;
+    temporaryPath = generatedTemporaryPath;
+    mkdirSync(dirname(filePath), { recursive: true, mode: 0o700 });
+    temporaryFileDescriptor = openSync(generatedTemporaryPath, "wx", 0o600);
+    temporaryFileCreated = true;
+    writeFileSync(temporaryFileDescriptor, `${JSON.stringify(preferences, null, 2)}\n`, "utf8");
+    closeSync(temporaryFileDescriptor);
+    temporaryFileDescriptor = undefined;
+    renameSync(generatedTemporaryPath, filePath);
+    temporaryFileCreated = false;
   } catch {
     // Session persistence remains available if global file storage is unavailable.
+  } finally {
+    if (temporaryFileDescriptor !== undefined) {
+      try {
+        closeSync(temporaryFileDescriptor);
+      } catch {
+        // The descriptor may already be closed after a failed filesystem operation.
+      }
+    }
+    if (temporaryFileCreated && temporaryPath !== undefined) {
+      try {
+        unlinkSync(temporaryPath);
+      } catch {
+        // The temporary file may already be absent after a failed filesystem operation.
+      }
+    }
   }
 }
 
 export function isMascotAnimatedState(state: MascotState): boolean {
   return state === "thinking" || state === "working";
+}
+
+function hasAgentFailure(messages: readonly unknown[] | undefined): boolean {
+  return (
+    messages?.some((message) => {
+      if (typeof message !== "object" || message === null) return false;
+
+      const candidate = message as { role?: unknown; stopReason?: unknown };
+      return (
+        candidate.role === "assistant" &&
+        (candidate.stopReason === "error" || candidate.stopReason === "aborted")
+      );
+    }) ?? false
+  );
 }
 
 export function parseMascotCommand(args: string): MascotCommand {
@@ -190,7 +241,8 @@ export default function (pi: ExtensionAPI): void {
   let showLabel = true;
   let gap = DEFAULT_GAP;
   let state: MascotState = "idle";
-  let lastToolFailed = false;
+  let activeToolCalls = new Set<string>();
+  let failedToolCalls = new Set<string>();
   let requestRender: (() => void) | undefined;
   let setSparkleAnimation: ((active: boolean) => void) | undefined;
 
@@ -271,26 +323,30 @@ export default function (pi: ExtensionAPI): void {
         const timerWithUnref = sparkleTimer as unknown as { unref?: () => void };
         timerWithUnref.unref?.();
       };
-      setSparkleAnimation = (active) => {
+      const updateSparkleAnimation = (active: boolean): void => {
         if (active) startSparkle();
         else stopSparkle();
       };
+      setSparkleAnimation = updateSparkleAnimation;
       requestRender = renderRequest;
 
       return {
         // State and sparkle frame are read during every render.
         render: (_width: number): string[] =>
           enabled
-            ? renderMascot((text) => theme.fg(MASCOT_STATE_COLORS[state], text), {
-                showLabel,
-                gap,
-                sparkle: MASCOT_SPARKLE_FRAMES[sparkleIndex],
-              })
+            ? [
+                ...Array.from({ length: MASCOT_TOP_PADDING_LINES }, () => ""),
+                ...renderMascot((text) => theme.fg(MASCOT_STATE_COLORS[state], text), {
+                  showLabel,
+                  gap,
+                  sparkle: MASCOT_SPARKLE_FRAMES[sparkleIndex],
+                }),
+              ]
             : [],
         invalidate(): void {},
         dispose(): void {
           stopSparkle();
-          setSparkleAnimation = undefined;
+          if (setSparkleAnimation === updateSparkleAnimation) setSparkleAnimation = undefined;
           if (requestRender === renderRequest) requestRender = undefined;
         },
       };
@@ -353,15 +409,19 @@ export default function (pi: ExtensionAPI): void {
   });
 
   pi.on("session_start", (_event, ctx) => {
-    state = "idle";
-    lastToolFailed = false;
+    setSparkleAnimation?.(false);
+    setSparkleAnimation = undefined;
     requestRender = undefined;
+    state = "idle";
+    activeToolCalls = new Set<string>();
+    failedToolCalls = new Set<string>();
     restorePreferences(ctx);
     installWidget(ctx);
   });
 
   pi.on("agent_start", () => {
-    lastToolFailed = false;
+    activeToolCalls = new Set<string>();
+    failedToolCalls = new Set<string>();
     setState("thinking");
   });
 
@@ -369,17 +429,26 @@ export default function (pi: ExtensionAPI): void {
     setState("thinking");
   });
 
-  pi.on("tool_execution_start", () => {
+  pi.on("tool_execution_start", (event) => {
+    activeToolCalls.add(event.toolCallId);
     setState("working");
   });
 
   pi.on("tool_execution_end", (event) => {
-    if (event.isError) lastToolFailed = true;
-    setState(event.isError ? "error" : "thinking");
+    activeToolCalls.delete(event.toolCallId);
+    if (event.isError) failedToolCalls.add(event.toolCallId);
+
+    if (activeToolCalls.size > 0) {
+      setState("working");
+      return;
+    }
+
+    setState(failedToolCalls.size > 0 ? "error" : "thinking");
   });
 
-  pi.on("agent_end", () => {
-    setState(lastToolFailed ? "error" : "success");
+  pi.on("agent_end", (event) => {
+    activeToolCalls.clear();
+    setState(failedToolCalls.size > 0 || hasAgentFailure(event.messages) ? "error" : "success");
   });
 
 }

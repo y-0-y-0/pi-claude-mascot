@@ -1,6 +1,6 @@
 # pi-claude-mascot
 
-Theme-aware pixel-art mascot widget for [Pi](https://pi.dev/). Displays small mascot above editor, aligned left.
+Theme-aware pixel-art mascot widget for [Pi](https://pi.dev/). Displays small mascot above editor, aligned left, with one empty line of top spacing.
 
 ## Install
 
@@ -16,7 +16,10 @@ pi -e ./extensions/mascot-widget.ts
 
 ## Mascot
 
+Widget leaves one empty line above mascot so it sits one terminal row lower without changing artwork geometry or sparkle animation.
+
 ```text
+
  ▐▛███▜▌·  ▄▄▄▄  ▄▄    ▄▄▄▄  ▄▄▄  ▄▄▄▄  ▄▄▄▄▄
 ▝▜█████▛▘  ██▄█▀ ██   ██▀▀▀ ██▀██ ██▀██ ██▄▄
   ▘▘ ▝▝    ██    ██   ▀████ ▀███▀ ████▀ ██▄▄▄

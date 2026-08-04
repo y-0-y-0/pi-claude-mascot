@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { rmSync, writeFileSync } from "node:fs";
+import { rmSync, statSync, writeFileSync } from "node:fs";
 import { beforeEach, test } from "node:test";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -12,6 +12,7 @@ import registerMascot, {
   MASCOT_PREFERENCES_TYPE,
   MASCOT_SPARKLE_FRAMES,
   MASCOT_SPARKLE_INTERVAL_MS,
+  MASCOT_TOP_PADDING_LINES,
   MASCOT_USAGE,
   MASCOT_STATE_COLORS,
   PI_CODE_ART,
@@ -65,6 +66,10 @@ const EXPECTED_LINES = [
   `${MASCOT_ART[1]}  ${PI_CODE_ART[1]}`,
   `  ${MASCOT_ART[2]}    ${PI_CODE_ART[2]}`,
 ];
+const EXPECTED_WIDGET_LINES = [
+  ...Array.from({ length: MASCOT_TOP_PADDING_LINES }, () => ""),
+  ...EXPECTED_LINES,
+];
 
 test("registers mascot widget on session_start with default placement", () => {
   let sessionStart: MascotHandler | undefined;
@@ -105,7 +110,7 @@ test("registers mascot widget on session_start with default placement", () => {
     },
   });
 
-  assert.deepEqual(widget.render(80), EXPECTED_LINES);
+  assert.deepEqual(widget.render(80), EXPECTED_WIDGET_LINES);
   assert.doesNotThrow(() => widget.invalidate());
   widget.dispose?.();
   assert.ok(events.has("agent_start"));
@@ -136,6 +141,7 @@ test("renders supplied three-row PI CODE artwork beside mascot", () => {
 
 test("renders requested sparkle frame and exposes animation timing", () => {
   assert.equal(MASCOT_SPARKLE_INTERVAL_MS, 120);
+  assert.equal(MASCOT_TOP_PADDING_LINES, 1);
   assert.deepEqual(MASCOT_SPARKLE_FRAMES, ["·", "✢", "✶", "✻", "✽", "✻", "✶", "✢", "·"]);
   assert.equal(
     renderMascot((text) => text, { showLabel: false, sparkle: "✽" })[0],
@@ -272,6 +278,7 @@ test("persists preferences globally for new sessions", async () => {
   assert.ok(widgetFactory);
   const widget = widgetFactory({ requestRender(): void {} }, { fg: (_color, text) => text });
   assert.deepEqual(widget.render(80), [
+    ...Array.from({ length: MASCOT_TOP_PADDING_LINES }, () => ""),
     ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`,
     MASCOT_ART[1],
     `  ${MASCOT_ART[2]}  `,
@@ -280,8 +287,9 @@ test("persists preferences globally for new sessions", async () => {
   widget.dispose?.();
 });
 
-test("ignores malformed global preferences", () => {
+test("ignores malformed global preferences and keeps preference file private", () => {
   writeGlobalPreferences({ enabled: true, showLabel: false, gap: 2 });
+  assert.equal(statSync(TEST_GLOBAL_PREFERENCES_PATH).mode & 0o777, 0o600);
   const invalidPath = TEST_GLOBAL_PREFERENCES_PATH;
   process.env[MASCOT_GLOBAL_PREFERENCES_ENV] = invalidPath;
   writeFileSync(invalidPath, "not-json", "utf8");
@@ -363,11 +371,12 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   assert.equal(requestRenderCount, 4);
   assert.equal(widgetInstallCount, 1);
   assert.deepEqual(widget.render(80), [
+    ...Array.from({ length: MASCOT_TOP_PADDING_LINES }, () => ""),
     ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`,
     MASCOT_ART[1],
     `  ${MASCOT_ART[2]}  `,
   ]);
-  assert.ok(renderedColors.every((color) => color === "accent"));
+  assert.equal(renderedColors.every((color) => color === "accent"), true);
 
   await command.handler("status", context);
   assert.equal(
@@ -388,19 +397,40 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
 
   events.get("agent_start")?.({}, context);
   renderedColors.length = 0;
-  assert.equal(widget.render(80)[0], ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`);
-  assert.ok(renderedColors.every((color) => color === "thinkingText"));
-  events.get("tool_execution_start")?.({}, context);
+  assert.equal(
+    widget.render(80)[MASCOT_TOP_PADDING_LINES],
+    ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`,
+  );
+  assert.equal(renderedColors.every((color) => color === "thinkingText"), true);
+  events.get("tool_execution_start")?.({ toolCallId: "tool-1" }, context);
   renderedColors.length = 0;
   widget.render(80);
-  assert.ok(renderedColors.every((color) => color === "warning"));
-  events.get("tool_execution_end")?.({ isError: true }, context);
+  assert.equal(renderedColors.every((color) => color === "warning"), true);
+  events.get("tool_execution_end")?.({ toolCallId: "tool-1", isError: true }, context);
   events.get("agent_end")?.({}, context);
   renderedColors.length = 0;
   widget.render(80);
-  assert.ok(renderedColors.every((color) => color === "error"));
+  assert.equal(renderedColors.every((color) => color === "error"), true);
   await command.handler("status", context);
   assert.equal(notifications.at(-1)?.message, "Mascot: enabled; PI CODE label: disabled; Gap: 2; State: error");
+
+  events.get("agent_start")?.({}, context);
+  events.get("tool_execution_start")?.({ toolCallId: "parallel-1" }, context);
+  events.get("tool_execution_start")?.({ toolCallId: "parallel-2" }, context);
+  events.get("tool_execution_end")?.({ toolCallId: "parallel-1", isError: true }, context);
+  renderedColors.length = 0;
+  widget.render(80);
+  assert.equal(renderedColors.every((color) => color === "warning"), true);
+  events.get("tool_execution_end")?.({ toolCallId: "parallel-2", isError: false }, context);
+  renderedColors.length = 0;
+  widget.render(80);
+  assert.equal(renderedColors.every((color) => color === "error"), true);
+
+  events.get("agent_start")?.({}, context);
+  events.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "error" }] }, context);
+  renderedColors.length = 0;
+  widget.render(80);
+  assert.equal(renderedColors.every((color) => color === "error"), true);
 
   widget.dispose?.();
   sessionStart({}, {
@@ -417,6 +447,7 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
     },
   });
   assert.deepEqual(restoredWidget.render(80), [
+    ...Array.from({ length: MASCOT_TOP_PADDING_LINES }, () => ""),
     ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`,
     MASCOT_ART[1],
     `  ${MASCOT_ART[2]}  `,
@@ -425,6 +456,6 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   events.get("agent_end")?.({}, context);
   renderedColors.length = 0;
   restoredWidget.render(80);
-  assert.ok(renderedColors.every((color) => color === "success"));
+  assert.equal(renderedColors.every((color) => color === "success"), true);
   restoredWidget.dispose?.();
 });
