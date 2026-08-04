@@ -4,31 +4,41 @@ import { test } from "node:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import registerMascot, {
   MASCOT_ART,
+  MASCOT_PREFERENCES_TYPE,
+  MASCOT_STATE_COLORS,
   PI_CODE_ART,
+  formatMascotStatus,
+  isMascotPreferences,
   normalizeGap,
   renderMascot,
 } from "../extensions/mascot-widget.ts";
 
 type MascotTheme = {
-  fg(color: "accent", text: string): string;
+  fg(color: string, text: string): string;
 };
 
 type MascotWidget = {
   render(width: number): string[];
   invalidate(): void;
 };
+type MascotContext = {
+  ui: {
+    setWidget(
+      key: string,
+      factory: (tui: { requestRender(): void }, theme: MascotTheme) => MascotWidget,
+    ): void;
+    notify(message: string, type?: "info" | "warning" | "error"): void;
+  };
+  sessionManager: {
+    getBranch(): Array<{ type: string; customType?: string; data?: unknown }>;
+  };
+};
 
-type SessionStartHandler = (
-  event: unknown,
-  context: {
-    ui: {
-      setWidget(
-        key: string,
-        factory: (tui: unknown, theme: MascotTheme) => MascotWidget,
-      ): void;
-    };
-  },
-) => void;
+type MascotHandler = (event: unknown, context: MascotContext) => void;
+
+type CommandDefinition = {
+  handler(args: string, context: MascotContext): Promise<void> | void;
+};
 
 const EXPECTED_LINES = [
   ` ${MASCOT_ART[0]}   ${PI_CODE_ART[0]}`,
@@ -37,22 +47,23 @@ const EXPECTED_LINES = [
 ];
 
 test("registers mascot widget on session_start with default placement", () => {
-  let sessionStart: SessionStartHandler | undefined;
-  let widgetFactory: ((tui: unknown, theme: MascotTheme) => MascotWidget) | undefined;
-  const registeredCommands: string[] = [];
+  let sessionStart: MascotHandler | undefined;
+  let widgetFactory: ((tui: { requestRender(): void }, theme: MascotTheme) => MascotWidget) | undefined;
+  const registeredCommands = new Map<string, CommandDefinition>();
+  const events = new Map<string, MascotHandler>();
 
   const pi = {
-    registerCommand(name: string, _definition: unknown): void {
-      registeredCommands.push(name);
+    registerCommand(name: string, definition: CommandDefinition): void {
+      registeredCommands.set(name, definition);
     },
-    on(event: string, handler: SessionStartHandler): void {
-      assert.equal(event, "session_start");
-      sessionStart = handler;
+    on(event: string, handler: MascotHandler): void {
+      events.set(event, handler);
+      if (event === "session_start") sessionStart = handler;
     },
   } as unknown as ExtensionAPI;
 
   registerMascot(pi);
-  assert.deepEqual(registeredCommands, ["mascot"]);
+  assert.deepEqual([...registeredCommands.keys()], ["mascot"]);
   assert.ok(sessionStart);
 
   sessionStart({}, {
@@ -61,11 +72,13 @@ test("registers mascot widget on session_start with default placement", () => {
         assert.equal(key, "mascot");
         widgetFactory = factory;
       },
+      notify(): void {},
     },
+    sessionManager: { getBranch: () => [] },
   });
 
   assert.ok(widgetFactory);
-  const widget = widgetFactory({}, {
+  const widget = widgetFactory({ requestRender(): void {} }, {
     fg: (color, text) => {
       assert.equal(color, "accent");
       return text;
@@ -74,6 +87,9 @@ test("registers mascot widget on session_start with default placement", () => {
 
   assert.deepEqual(widget.render(80), EXPECTED_LINES);
   assert.doesNotThrow(() => widget.invalidate());
+  assert.ok(events.has("agent_start"));
+  assert.ok(events.has("tool_execution_start"));
+  assert.ok(events.has("agent_end"));
 });
 
 test("renders supplied three-row PI CODE artwork beside mascot", () => {
@@ -110,4 +126,145 @@ test("applies active theme colorizer to mascot and every PI CODE row", () => {
   assert.equal(accent.length, 3);
   assert.ok(accent.every((line) => line.includes("<accent>")));
   assert.ok(accent.every((line) => !line.includes("<muted>")));
+});
+
+test("validates and formats persisted preferences", () => {
+  assert.equal(isMascotPreferences({ enabled: true, showLabel: false, gap: 4 }), true);
+  assert.equal(isMascotPreferences({ enabled: true, showLabel: false, gap: 9 }), false);
+  assert.equal(isMascotPreferences({ enabled: true, showLabel: false, gap: 2.5 }), false);
+  assert.equal(isMascotPreferences(undefined), false);
+  assert.equal(MASCOT_PREFERENCES_TYPE, "pi-claude-mascot.preferences");
+  assert.deepEqual(MASCOT_STATE_COLORS, {
+    idle: "accent",
+    thinking: "thinkingText",
+    working: "warning",
+    success: "success",
+    error: "error",
+  });
+  assert.equal(
+    formatMascotStatus(false, true, 3, "working"),
+    "Mascot: disabled; PI CODE label: enabled; Gap: 3; State: working",
+  );
+});
+
+test("handles strict mascot commands, persistence, and live widget updates", async () => {
+  let sessionStart: MascotHandler | undefined;
+  let widgetFactory: ((tui: { requestRender(): void }, theme: MascotTheme) => MascotWidget) | undefined;
+  let command: CommandDefinition | undefined;
+  let requestRenderCount = 0;
+  let widgetInstallCount = 0;
+  const renderedColors: string[] = [];
+  const notifications: Array<{ message: string; type?: "info" | "warning" | "error" }> = [];
+  const appended: Array<{ customType: string; data: unknown }> = [];
+  const events = new Map<string, MascotHandler>();
+
+  const pi = {
+    registerCommand(_name: string, definition: CommandDefinition): void {
+      command = definition;
+    },
+    appendEntry(customType: string, data: unknown): void {
+      appended.push({ customType, data });
+    },
+    on(event: string, handler: MascotHandler): void {
+      events.set(event, handler);
+      if (event === "session_start") sessionStart = handler;
+    },
+  } as unknown as ExtensionAPI;
+
+  registerMascot(pi);
+  assert.ok(sessionStart);
+  assert.ok(command);
+
+  const context: MascotContext = {
+    ui: {
+      setWidget(_key, factory): void {
+        widgetInstallCount += 1;
+        widgetFactory = factory;
+      },
+      notify(message, type): void {
+        notifications.push({ message, type });
+      },
+    },
+    sessionManager: { getBranch: () => [] },
+  };
+
+  sessionStart({}, context);
+  assert.ok(widgetFactory);
+  const widget = widgetFactory({ requestRender: () => requestRenderCount++ }, {
+    fg: (color, text) => {
+      renderedColors.push(color);
+      return text;
+    },
+  });
+
+  await command.handler("off", context);
+  assert.deepEqual(widget.render(80), []);
+  assert.deepEqual(appended.at(-1), {
+    customType: MASCOT_PREFERENCES_TYPE,
+    data: { enabled: false, showLabel: true, gap: 2 },
+  });
+
+  await command.handler("label off extra", context);
+  assert.equal(notifications.at(-1)?.type, "error");
+  await command.handler("gap 9", context);
+  assert.equal(notifications.at(-1)?.type, "error");
+  await command.handler("unknown", context);
+  assert.equal(notifications.at(-1)?.type, "error");
+  await command.handler("on", context);
+  await command.handler("label off", context);
+  await command.handler("gap 6", context);
+  assert.equal(requestRenderCount, 4);
+  assert.equal(widgetInstallCount, 1);
+  assert.deepEqual(widget.render(80), [
+    ` ${MASCOT_ART[0]} `,
+    MASCOT_ART[1],
+    `  ${MASCOT_ART[2]}  `,
+  ]);
+  assert.ok(renderedColors.every((color) => color === "accent"));
+
+  await command.handler("status", context);
+  assert.equal(
+    notifications.at(-1)?.message,
+    "Mascot: enabled; PI CODE label: disabled; Gap: 6; State: idle",
+  );
+
+  events.get("agent_start")?.({}, context);
+  renderedColors.length = 0;
+  assert.equal(widget.render(80)[0], ` ${MASCOT_ART[0]} `);
+  assert.ok(renderedColors.every((color) => color === "thinkingText"));
+  events.get("tool_execution_start")?.({}, context);
+  renderedColors.length = 0;
+  widget.render(80);
+  assert.ok(renderedColors.every((color) => color === "warning"));
+  events.get("tool_execution_end")?.({ isError: true }, context);
+  events.get("agent_end")?.({}, context);
+  renderedColors.length = 0;
+  widget.render(80);
+  assert.ok(renderedColors.every((color) => color === "error"));
+  await command.handler("status", context);
+  assert.equal(notifications.at(-1)?.message, "Mascot: enabled; PI CODE label: disabled; Gap: 6; State: error");
+
+  sessionStart({}, {
+    ...context,
+    sessionManager: {
+      getBranch: () => appended.map(({ customType, data }) => ({ type: "custom", customType, data })),
+    },
+  });
+  assert.ok(widgetFactory);
+  const restoredWidget = widgetFactory({ requestRender: () => requestRenderCount++ }, {
+    fg: (color, text) => {
+      renderedColors.push(color);
+      return text;
+    },
+  });
+  assert.deepEqual(restoredWidget.render(80), [
+    ` ${MASCOT_ART[0]} `,
+    MASCOT_ART[1],
+    `  ${MASCOT_ART[2]}  `,
+  ]);
+  events.get("agent_start")?.({}, context);
+  events.get("agent_end")?.({}, context);
+  renderedColors.length = 0;
+  restoredWidget.render(80);
+  assert.ok(renderedColors.every((color) => color === "success"));
 });

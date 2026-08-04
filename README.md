@@ -28,15 +28,34 @@ Mascot keeps fixed pixel geometry beside supplied three-row `PI CODE` artwork. B
 
 ```text
 /mascot             Toggle mascot
+/mascot on          Enable mascot
+/mascot off         Disable mascot
 /mascot label       Toggle PI CODE label
+/mascot label on    Show PI CODE label
+/mascot label off   Hide PI CODE label
 /mascot gap 0-8     Set spacing between mascot and label
+/mascot status      Show current mascot settings and state
 ```
 
 Custom label text is intentionally not supported.
 
+Settings are persisted in the current Pi session branch and restored when that session is resumed. They are not global across unrelated sessions.
+
+## Dynamic state
+
+Mascot color follows current Pi semantic theme color for its runtime state:
+
+- `accent` when idle;
+- `thinkingText` while Pi is thinking;
+- `warning` while a tool executes;
+- `success` after a successful agent run;
+- `error` after a failed tool or agent run.
+
+State changes refresh the existing widget in place. Mascot geometry and fixed three-row layout remain unchanged.
+
 ## Theme-aware color
 
-Mascot uses semantic Pi color `accent` through `theme.fg("accent", text)`. Color is recalculated during rendering, so mascot follows active Pi theme without hardcoded ANSI escapes or hex colors.
+Mascot uses semantic Pi colors through `theme.fg(color, text)`. Color is recalculated during rendering, so mascot follows active Pi theme without hardcoded ANSI escapes or hex colors.
 
 Background remains transparent. Rendering uses plain Unicode block characters and works in universal terminals.
 

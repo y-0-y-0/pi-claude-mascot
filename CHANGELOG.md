@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0 - 2026-08-04
+
+- Added strict `/mascot` controls: `on`, `off`, `label on`, `label off`, `gap`, and `status`.
+- Added session-branch persistence for mascot visibility, label visibility, and gap.
+- Added dynamic mascot states for thinking, tool execution, success, and error, using semantic Pi theme colors.
+- Widget now updates through `tui.requestRender()` without reinstalling on each setting change.
+- Added command, persistence, and state transition regression tests.
+
 ## 1.0.10 - 2026-08-04
 
 - Consolidated mascot controls into single `/mascot` command.
