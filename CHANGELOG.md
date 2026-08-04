@@ -1,9 +1,13 @@
 # Changelog
 
+## 1.1.2 - 2026-08-04
+
+- Hid mascot below its 9-column minimum width to prevent terminal truncation and deformation.
+
 ## 1.1.1 - 2026-08-04
 
-- Reverted narrow-terminal cropping to preserve original mascot drawing.
-- Kept left-padding clamp at zero for terminals narrower than the drawing.
+- Reverted narrow-terminal cropping.
+- Preserved mascot geometry for supported terminal widths.
 
 ## 1.1.0 - 2026-08-04
 

@@ -22,7 +22,9 @@ function boxLine(line: string): string {
 
 export function renderMascot(width: number, colorize: (text: string) => string): string[] {
   const safeWidth = normalizeWidth(width);
-  const leftPadding = Math.max(0, safeWidth - DRAWING_WIDTH);
+  if (safeWidth < DRAWING_WIDTH) return [];
+
+  const leftPadding = safeWidth - DRAWING_WIDTH;
   const padding = " ".repeat(leftPadding);
 
   return MASCOT_ART.map((line) => padding + colorize(boxLine(line)));

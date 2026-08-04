@@ -12,19 +12,15 @@ test("keeps mascot aligned to the right at normal width", () => {
   assert.equal(lines[2], `           <accent>${MASCOT_ART[2]}  </accent>`);
 });
 
-test("clamps left padding without cropping mascot on narrow terminals", () => {
-  const lines = renderMascot(5, (text) => text);
-
-  assert.deepEqual(lines, MASCOT_ART.map((line) => line.padEnd(9, " ")));
-  assert.ok(lines.every((line) => line.length === 9));
+test("hides mascot instead of deforming it on narrow terminals", () => {
+  assert.deepEqual(renderMascot(8, (text) => text), []);
+  assert.deepEqual(renderMascot(5, (text) => text), []);
 });
 
-test("keeps mascot visible for zero or invalid width", () => {
-  const expected = MASCOT_ART.map((line) => line.padEnd(9, " "));
-
-  assert.deepEqual(renderMascot(0, (text) => text), expected);
-  assert.deepEqual(renderMascot(Number.NaN, (text) => text), expected);
-  assert.deepEqual(renderMascot(-10, (text) => text), expected);
+test("hides mascot for zero or invalid width", () => {
+  assert.deepEqual(renderMascot(0, (text) => text), []);
+  assert.deepEqual(renderMascot(Number.NaN, (text) => text), []);
+  assert.deepEqual(renderMascot(-10, (text) => text), []);
 });
 
 test("applies colorizer to mascot pixels without hardcoded color", () => {

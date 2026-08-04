@@ -31,8 +31,8 @@ Background remains transparent. Rendering uses plain Unicode block characters an
 ## Layout behavior
 
 - Terminals at least 9 columns wide: mascot is aligned to the right edge.
-- Narrow terminals: left padding clamps to zero and mascot drawing stays unchanged.
-- Zero, negative, or invalid width: mascot drawing stays visible without extra padding.
+- Narrow terminals: mascot is hidden instead of being cropped or deformed.
+- Zero, negative, or invalid width: widget returns no lines.
 
 ## Development
 
