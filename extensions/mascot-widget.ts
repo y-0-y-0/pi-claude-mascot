@@ -16,11 +16,8 @@ function normalizeWidth(width: number): number {
   return Number.isFinite(width) ? Math.max(0, Math.floor(width)) : 0;
 }
 
-function fitLine(line: string, width: number): string {
-  const boxedLine = line.padEnd(DRAWING_WIDTH, " ");
-  if (width === 0) return "";
-  if (width < DRAWING_WIDTH) return boxedLine.slice(-width);
-  return boxedLine;
+function boxLine(line: string): string {
+  return line.padEnd(DRAWING_WIDTH, " ");
 }
 
 export function renderMascot(width: number, colorize: (text: string) => string): string[] {
@@ -28,11 +25,7 @@ export function renderMascot(width: number, colorize: (text: string) => string):
   const leftPadding = Math.max(0, safeWidth - DRAWING_WIDTH);
   const padding = " ".repeat(leftPadding);
 
-  return MASCOT_ART.map((line) => {
-    const fittedLine = fitLine(line, safeWidth);
-    if (fittedLine.length === 0) return "";
-    return padding + colorize(fittedLine);
-  });
+  return MASCOT_ART.map((line) => padding + colorize(boxLine(line)));
 }
 
 export default function (pi: ExtensionAPI): void {

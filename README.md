@@ -28,11 +28,11 @@ Mascot pixels use Pi semantic color `accent` through `theme.fg("accent", text)`.
 
 Background remains transparent. Rendering uses plain Unicode block characters and works in universal terminals.
 
-## Responsive behavior
+## Layout behavior
 
-- Normal terminals: mascot is aligned to the right edge.
-- Narrow terminals: left side of mascot is cropped to keep every line within terminal width.
-- Zero or invalid width: widget returns empty lines instead of overflowing.
+- Terminals at least 9 columns wide: mascot is aligned to the right edge.
+- Narrow terminals: left padding clamps to zero and mascot drawing stays unchanged.
+- Zero, negative, or invalid width: mascot drawing stays visible without extra padding.
 
 ## Development
 
