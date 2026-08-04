@@ -1,14 +1,15 @@
 import { strict as assert } from "node:assert";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { rmSync, statSync, writeFileSync } from "node:fs";
-import { beforeEach, test } from "node:test";
+import { homedir, tmpdir } from "node:os";
+import { after, beforeEach, test } from "node:test";
+import { existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import registerMascot, {
   MASCOT_ART,
   MASCOT_GLOBAL_PREFERENCES_ENV,
   MASCOT_HELP,
+  MASCOT_MAX_GLOBAL_PREFERENCES_BYTES,
   MASCOT_PREFERENCES_TYPE,
   MASCOT_SPARKLE_FRAMES,
   MASCOT_SPARKLE_INTERVAL_MS,
@@ -26,10 +27,17 @@ import registerMascot, {
   writeGlobalPreferences,
 } from "../extensions/mascot-widget.ts";
 
-const TEST_GLOBAL_PREFERENCES_PATH = join(tmpdir(), `pi-claude-mascot-test-${process.pid}.json`);
+const TEST_GLOBAL_PREFERENCES_DIRECTORY = mkdtempSync(join(tmpdir(), "pi-claude-mascot-test-"));
+const TEST_GLOBAL_PREFERENCES_PATH = join(TEST_GLOBAL_PREFERENCES_DIRECTORY, "preferences.json");
+const ORIGINAL_GLOBAL_PREFERENCES_PATH = process.env[MASCOT_GLOBAL_PREFERENCES_ENV];
 process.env[MASCOT_GLOBAL_PREFERENCES_ENV] = TEST_GLOBAL_PREFERENCES_PATH;
 beforeEach(() => {
   rmSync(TEST_GLOBAL_PREFERENCES_PATH, { force: true });
+});
+after(() => {
+  if (ORIGINAL_GLOBAL_PREFERENCES_PATH === undefined) delete process.env[MASCOT_GLOBAL_PREFERENCES_ENV];
+  else process.env[MASCOT_GLOBAL_PREFERENCES_ENV] = ORIGINAL_GLOBAL_PREFERENCES_PATH;
+  rmSync(TEST_GLOBAL_PREFERENCES_DIRECTORY, { recursive: true, force: true });
 });
 
 type MascotTheme = {
@@ -180,18 +188,21 @@ test("animates only during thinking or working states", async () => {
   assert.ok(widgetFactory);
   const widget = widgetFactory({ requestRender: () => renderRequests++ }, { fg: (_color, text) => text });
 
-  await new Promise((resolve) => setTimeout(resolve, MASCOT_SPARKLE_INTERVAL_MS + 30));
-  assert.equal(renderRequests, 0);
+  try {
+    await new Promise((resolve) => setTimeout(resolve, MASCOT_SPARKLE_INTERVAL_MS + 30));
+    assert.equal(renderRequests, 0);
 
-  events.get("agent_start")?.({}, {} as MascotContext);
-  await new Promise((resolve) => setTimeout(resolve, MASCOT_SPARKLE_INTERVAL_MS + 30));
-  assert.ok(renderRequests > 0);
+    events.get("agent_start")?.({}, {} as MascotContext);
+    await new Promise((resolve) => setTimeout(resolve, MASCOT_SPARKLE_INTERVAL_MS + 30));
+    assert.ok(renderRequests > 0);
 
-  events.get("agent_end")?.({}, {} as MascotContext);
-  const requestsAfterIdle = renderRequests;
-  await new Promise((resolve) => setTimeout(resolve, MASCOT_SPARKLE_INTERVAL_MS + 30));
-  assert.equal(renderRequests, requestsAfterIdle);
-  widget.dispose?.();
+    events.get("agent_end")?.({}, {} as MascotContext);
+    const requestsAfterIdle = renderRequests;
+    await new Promise((resolve) => setTimeout(resolve, MASCOT_SPARKLE_INTERVAL_MS + 30));
+    assert.equal(renderRequests, requestsAfterIdle);
+  } finally {
+    widget.dispose?.();
+  }
 });
 
 test("normalizes configurable gap safely", () => {
@@ -199,6 +210,24 @@ test("normalizes configurable gap safely", () => {
   assert.equal(normalizeGap(-2), 0);
   assert.equal(normalizeGap(99), 8);
   assert.equal(normalizeGap(Number.NaN), 2);
+});
+
+test("uses a safe absolute fallback for relative path configuration", () => {
+  const previousPath = process.env[MASCOT_GLOBAL_PREFERENCES_ENV];
+  const previousAgentDirectory = process.env.PI_CODING_AGENT_DIR;
+
+  try {
+    process.env[MASCOT_GLOBAL_PREFERENCES_ENV] = "relative/preferences.json";
+    process.env.PI_CODING_AGENT_DIR = "relative-agent-directory";
+    assert.equal(
+      getGlobalPreferencesPath(),
+      join(homedir(), ".pi", "agent", "pi-claude-mascot.json"),
+    );
+  } finally {
+    process.env[MASCOT_GLOBAL_PREFERENCES_ENV] = previousPath ?? TEST_GLOBAL_PREFERENCES_PATH;
+    if (previousAgentDirectory === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previousAgentDirectory;
+  }
 });
 
 test("parses mascot commands strictly", () => {
@@ -292,6 +321,19 @@ test("ignores malformed global preferences and keeps preference file private", (
   process.env[MASCOT_GLOBAL_PREFERENCES_ENV] = invalidPath;
   writeFileSync(invalidPath, "not-json", "utf8");
   assert.equal(readGlobalPreferences(invalidPath), undefined);
+});
+
+test("ignores oversized, non-regular, and relative preference files", () => {
+  const oversizedPath = join(TEST_GLOBAL_PREFERENCES_DIRECTORY, "oversized.json");
+  writeFileSync(oversizedPath, "x".repeat(MASCOT_MAX_GLOBAL_PREFERENCES_BYTES + 1), "utf8");
+  assert.equal(readGlobalPreferences(oversizedPath), undefined);
+  assert.equal(readGlobalPreferences(TEST_GLOBAL_PREFERENCES_DIRECTORY), undefined);
+
+  const relativePath = `pi-claude-mascot-relative-${process.pid}.json`;
+  rmSync(relativePath, { force: true });
+  writeGlobalPreferences({ enabled: true, showLabel: true, gap: 2 }, relativePath);
+  assert.equal(readGlobalPreferences(relativePath), undefined);
+  assert.equal(existsSync(relativePath), false);
 });
 
 test("handles strict mascot commands, persistence, and live widget updates", async () => {
@@ -422,6 +464,15 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   renderedColors.length = 0;
   widget.render(80);
   assert.equal(renderedColors.every((color) => color === "error"), true);
+
+  events.get("agent_start")?.({}, context);
+  events.get("tool_execution_start")?.({ toolCallId: "retry" }, context);
+  events.get("tool_execution_end")?.({ toolCallId: "retry", isError: true }, context);
+  events.get("tool_execution_start")?.({ toolCallId: "retry" }, context);
+  events.get("tool_execution_end")?.({ toolCallId: "retry", isError: false }, context);
+  renderedColors.length = 0;
+  widget.render(80);
+  assert.equal(renderedColors.every((color) => color === "thinkingText"), true);
 
   events.get("agent_start")?.({}, context);
   events.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "error" }] }, context);

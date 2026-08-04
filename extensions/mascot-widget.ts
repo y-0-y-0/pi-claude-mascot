@@ -6,18 +6,21 @@ import { randomBytes } from "node:crypto";
 import { homedir } from "node:os";
 import {
   closeSync,
+  fstatSync,
+  lstatSync,
   mkdirSync,
   openSync,
-  readFileSync,
+  readSync,
   renameSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext, ThemeColor } from "@earendil-works/pi-coding-agent";
 
 const DEFAULT_GAP = 2;
 const MAX_GAP = 8;
+export const MASCOT_MAX_GLOBAL_PREFERENCES_BYTES = 4096;
 export const MASCOT_PREFERENCES_TYPE = "pi-claude-mascot.preferences";
 export const MASCOT_GLOBAL_PREFERENCES_ENV = "PI_CLAUDE_MASCOT_PREFERENCES_PATH";
 export const MASCOT_USAGE = "Usage: /mascot [on|off|label [on|off]|gap 0-8|status|reset|help]";
@@ -101,19 +104,50 @@ export function isMascotPreferences(value: unknown): value is MascotPreferences 
 }
 
 export function getGlobalPreferencesPath(): string {
-  const configuredPath = process.env[MASCOT_GLOBAL_PREFERENCES_ENV];
-  if (configuredPath) return configuredPath;
+  const configuredPath = process.env[MASCOT_GLOBAL_PREFERENCES_ENV]?.trim();
+  if (configuredPath && isAbsolute(configuredPath)) return configuredPath;
 
-  const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+  const configuredAgentDir = process.env.PI_CODING_AGENT_DIR?.trim();
+  const agentDir =
+    configuredAgentDir && isAbsolute(configuredAgentDir)
+      ? configuredAgentDir
+      : join(homedir(), ".pi", "agent");
   return join(agentDir, "pi-claude-mascot.json");
 }
 
 export function readGlobalPreferences(filePath = getGlobalPreferencesPath()): MascotPreferences | undefined {
+  if (!isAbsolute(filePath)) return undefined;
+
+  let fileDescriptor: number | undefined;
   try {
-    const data: unknown = JSON.parse(readFileSync(filePath, "utf8"));
+    const linkMetadata = lstatSync(filePath);
+    if (!linkMetadata.isFile() || linkMetadata.size > MASCOT_MAX_GLOBAL_PREFERENCES_BYTES) return undefined;
+
+    fileDescriptor = openSync(filePath, "r");
+    const metadata = fstatSync(fileDescriptor);
+    if (!metadata.isFile() || metadata.size > MASCOT_MAX_GLOBAL_PREFERENCES_BYTES) return undefined;
+
+    const buffer = Buffer.alloc(MASCOT_MAX_GLOBAL_PREFERENCES_BYTES + 1);
+    let bytesRead = 0;
+    while (bytesRead < buffer.length) {
+      const chunkSize = readSync(fileDescriptor, buffer, bytesRead, buffer.length - bytesRead, bytesRead);
+      if (chunkSize === 0) break;
+      bytesRead += chunkSize;
+    }
+    if (bytesRead > MASCOT_MAX_GLOBAL_PREFERENCES_BYTES) return undefined;
+
+    const data: unknown = JSON.parse(buffer.subarray(0, bytesRead).toString("utf8"));
     return isMascotPreferences(data) ? data : undefined;
   } catch {
     return undefined;
+  } finally {
+    if (fileDescriptor !== undefined) {
+      try {
+        closeSync(fileDescriptor);
+      } catch {
+        // The descriptor may already be closed after a failed filesystem operation.
+      }
+    }
   }
 }
 
@@ -121,7 +155,7 @@ export function writeGlobalPreferences(
   preferences: MascotPreferences,
   filePath = getGlobalPreferencesPath(),
 ): void {
-  if (!isMascotPreferences(preferences)) return;
+  if (!isMascotPreferences(preferences) || !isAbsolute(filePath)) return;
 
   let temporaryPath: string | undefined;
   let temporaryFileDescriptor: number | undefined;
@@ -427,6 +461,7 @@ export default function (pi: ExtensionAPI): void {
 
   pi.on("tool_execution_start", (event) => {
     activeToolCalls.add(event.toolCallId);
+    failedToolCalls.delete(event.toolCallId);
     setState("working");
   });
 

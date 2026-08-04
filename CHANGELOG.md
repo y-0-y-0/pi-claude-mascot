@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.9.4 - 2026-08-04
+
+- Hardened global preference reads against relative paths, non-regular files, and files larger than 4 KiB.
+- Cleared failed tool state when a tool call is retried successfully.
+- Added publish-time test and package checks plus non-publishing GitHub CI.
+- Kept npm publication manual for the package owner.
+
 ## 1.9.3 - 2026-08-04
 
 - Applied a complete half-cell upward translation to the `PI CODE` pixel pattern.

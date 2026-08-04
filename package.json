@@ -1,6 +1,6 @@
 {
   "name": "pi-claude-mascot",
-  "version": "1.9.3",
+  "version": "1.9.4",
   "description": "Theme-aware pixel-art mascot widget for Pi, rendered above the editor.",
   "keywords": [
     "pi-package",
@@ -21,7 +21,8 @@
   ],
   "scripts": {
     "test": "node --test --experimental-strip-types test/mascot-widget.test.ts",
-    "pack:check": "npm pack --dry-run"
+    "pack:check": "npm pack --dry-run",
+    "prepublishOnly": "npm test && npm run pack:check"
   },
   "engines": {
     "node": ">=22"

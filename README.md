@@ -51,7 +51,7 @@ Repeated commands with no setting change do not create duplicate session prefere
 
 A fresh session without saved preferences starts with `PI CODE` visible. Reset intentionally uses quieter defaults and hides it.
 
-Settings are persisted globally in `~/.pi/agent/pi-claude-mascot.json`, so they survive new Pi sessions. A valid preference in the current session branch takes priority. Set `PI_CLAUDE_MASCOT_PREFERENCES_PATH` to override global file path for managed environments or tests.
+Settings are persisted globally in `~/.pi/agent/pi-claude-mascot.json`, so they survive new Pi sessions. A valid preference in the current session branch takes priority. Set `PI_CLAUDE_MASCOT_PREFERENCES_PATH` to an absolute file path to override global storage for managed environments or tests. Files larger than 4 KiB and non-regular files are ignored.
 
 ## Dynamic state
 
@@ -83,13 +83,15 @@ pi --no-extensions -e ./extensions/mascot-widget.ts -p ""
 
 Use `--no-extensions` when testing the local extension so an installed global copy cannot register the same widget a second time.
 
+The extension has no runtime dependencies. A full `npm audit` may report vulnerabilities inherited from the Pi host peer dependency; upgrade Pi separately when a fixed host release is available.
+
 Reference image: https://x.com/EricBuess/status/1973392076550123946
 
 ## Publish
 
 ```bash
 npm login
-npm publish
+npm publish --access public
 ```
 
-Package manifest follows Pi package conventions and exposes `extensions/` through the `pi` field in `package.json`.
+Package publication runs the test suite and package check through `prepublishOnly`. The Pi host is a peer dependency; keep Pi updated independently when its dependency audit reports host vulnerabilities.
