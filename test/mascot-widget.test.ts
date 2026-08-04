@@ -119,7 +119,7 @@ test("renders supplied three-row PI CODE artwork beside mascot", () => {
   assert.deepEqual(lines, EXPECTED_LINES);
   assert.equal(PI_CODE_ART.length, 3);
   assert.ok(PI_CODE_ART.every((line) => /^[█▄▀ ]+$/.test(line)));
-  assert.deepEqual(lines.map((line) => line.length), [50, 48, 50]);
+  assert.deepEqual(lines.map((line) => line.length), [45, 44, 45]);
 
   const noLabel = renderMascot((text) => text, { showLabel: false });
   assert.deepEqual(noLabel, [

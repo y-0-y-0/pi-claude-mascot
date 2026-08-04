@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.0 - 2026-08-04
+
+- Replaced `PI CODE` artwork with compact supplied three-row Unicode artwork.
+- Updated geometry regression expectations for new label width.
+
 ## 1.7.0 - 2026-08-04
 
 - Added global preference persistence across new Pi sessions.
