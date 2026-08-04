@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.2 - 2026-08-04
+
+- Raised the first `PI CODE` row by one half-cell with upper block glyphs for visual alignment.
+- Kept npm publication separate for manual release by the package owner.
+
 ## 1.9.1 - 2026-08-04
 
 - Republished the aligned three-row mascot widget release with the corrected package version.

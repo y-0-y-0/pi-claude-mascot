@@ -19,7 +19,7 @@ pi --no-extensions -e ./extensions/mascot-widget.ts
 Mascot and supplied `PI CODE` artwork always render side by side at the same three-row height.
 
 ```text
- ▐▛███▜▌·  ▄▄▄▄  ▄▄    ▄▄▄▄  ▄▄▄  ▄▄▄▄  ▄▄▄▄▄
+ ▐▛███▜▌·  ▀▀▀▀  ▀▀    ▀▀▀▀  ▀▀▀  ▀▀▀▀  ▀▀▀▀▀
 ▝▜█████▛▘  ██▄█▀ ██   ██▀▀▀ ██▀██ ██▀██ ██▄▄
   ▘▘ ▝▝    ██    ██   ▀████ ▀███▀ ████▀ ██▄▄▄
 ```

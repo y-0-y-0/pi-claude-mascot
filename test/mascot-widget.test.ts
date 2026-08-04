@@ -120,6 +120,7 @@ test("renders supplied three-row PI CODE artwork beside mascot at matching heigh
   assert.equal(MASCOT_ART.length, PI_CODE_ART.length);
   assert.equal(MASCOT_ART.length, 3);
   assert.equal(PI_CODE_ART.length, 3);
+  assert.equal(PI_CODE_ART[0], "▀▀▀▀  ▀▀    ▀▀▀▀  ▀▀▀  ▀▀▀▀  ▀▀▀▀▀");
   assert.ok(PI_CODE_ART.every((line) => /^[█▄▀ ]+$/.test(line)));
   assert.deepEqual(lines.map((line) => line.length), [45, 44, 45]);
 
