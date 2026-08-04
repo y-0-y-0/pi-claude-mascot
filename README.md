@@ -17,9 +17,9 @@ pi -e ./extensions/mascot-widget.ts
 ## Mascot
 
 ```text
- ▐▛███▜▌   ####  #####  ####  ###   ###   #####
-▝▜█████▛▘  #   #   #    #     #   # #  #  #
-  ▘▘ ▝▝    ####  #####  ####  ###   ###   #####
+ ▐▛███▜▌   ███  ███   ███  ███  ██   ████
+▝▜█████▛▘  █  █  █    █    █  █ █  █ ██
+  ▘▘ ▝▝    ███  ███   ███  ███  ██   ████
 ```
 
 Mascot keeps fixed 9-column pixel geometry. Three-row ASCII label `PI CODE` appears beside it, with no crop or animation.

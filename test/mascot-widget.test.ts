@@ -70,7 +70,8 @@ test("renders mascot left-aligned with stable pixel geometry", () => {
     `  ${MASCOT_ART[2]}    ${PI_CODE_ART[2]}`,
   ]);
   assert.equal(PI_CODE_ART.length, 3);
-  assert.deepEqual(lines.map((line) => line.length), [47, 47, 47]);
+  assert.ok(PI_CODE_ART.every((line) => /^[█ ]+$/.test(line)));
+  assert.deepEqual(lines.map((line) => line.length), [41, 41, 41]);
 });
 
 test("applies active theme colorizer to every mascot row", () => {
