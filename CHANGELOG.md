@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.3 - 2026-08-04
+
+- Applied a complete half-cell upward translation to the `PI CODE` pixel pattern.
+- Kept npm publication separate for manual release by the package owner.
+
 ## 1.9.2 - 2026-08-04
 
 - Raised the first `PI CODE` row by one half-cell with upper block glyphs for visual alignment.

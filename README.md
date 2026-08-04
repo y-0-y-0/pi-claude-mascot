@@ -19,9 +19,9 @@ pi --no-extensions -e ./extensions/mascot-widget.ts
 Mascot and supplied `PI CODE` artwork always render side by side at the same three-row height.
 
 ```text
- ▐▛███▜▌·  ▀▀▀▀  ▀▀    ▀▀▀▀  ▀▀▀  ▀▀▀▀  ▀▀▀▀▀
-▝▜█████▛▘  ██▄█▀ ██   ██▀▀▀ ██▀██ ██▀██ ██▄▄
-  ▘▘ ▝▝    ██    ██   ▀████ ▀███▀ ████▀ ██▄▄▄
+ ▐▛███▜▌·  ██▀█▄ ██   ▄████ ▄███▄ ████▄ ██▀▀▀
+▝▜█████▛▘  ██▀▀  ██   ██▄▄▄ ██▄██ ██▄██ ██▀▀
+  ▘▘ ▝▝    ▀▀    ▀▀    ▀▀▀▀  ▀▀▀  ▀▀▀▀  ▀▀▀▀▀
 ```
 
 Mascot keeps fixed pixel geometry beside supplied three-row `PI CODE` artwork. Both use matching block characters, with no crop. Example below shows label visible and idle sparkle `·`.
