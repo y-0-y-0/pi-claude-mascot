@@ -17,9 +17,8 @@ export const MASCOT_ART = [
 
 const PI_CODE_GLYPHS = [
   ["██", "███", "███", "███", "██", "███"],
-  ["█ █", " █", "█", "█ █", "█ █", "█"],
-  ["██", " █", "█", "█ █", "█ █", "██"],
-  ["█", " █", "█", "█ █", "█ █", "█"],
+  ["█ █", " █", "█", "█ █", "█ █", "██"],
+  ["██", " █", "█", "█ █", "█ █", "█"],
   ["█", "███", "███", "███", "██", "███"],
 ] as const;
 
@@ -43,7 +42,6 @@ export function renderMascot(colorize: (text: string) => string): string[] {
     centerMascotRow(MASCOT_ART[0]),
     centerMascotRow(MASCOT_ART[1]),
     centerMascotRow(MASCOT_ART[2]),
-    " ".repeat(MASCOT_WIDTH),
   ];
 
   return PI_CODE_ART.map(

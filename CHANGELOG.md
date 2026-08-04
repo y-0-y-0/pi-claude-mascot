@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.6 - 2026-08-04
+
+- Reduced `PI CODE` pixel font from five rows to four.
+- Preserved readable letters and block-character style.
+
 ## 1.0.5 - 2026-08-04
 
 - Rebuilt `PI CODE` as a readable five-row pixel font.

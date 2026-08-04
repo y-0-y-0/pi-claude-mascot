@@ -18,13 +18,12 @@ pi -e ./extensions/mascot-widget.ts
 
 ```text
            ██  ███  ███ ███ ██  ███
- ▐▛███▜▌   █ █  █   █   █ █ █ █ █
-▝▜█████▛▘  ██   █   █   █ █ █ █ ██
-  ▘▘ ▝▝    █    █   █   █ █ █ █ █
-           █   ███  ███ ███ ██  ███
+ ▐▛███▜▌   █ █  █   █   █ █ █ █ ██
+▝▜█████▛▘  ██   █   █   █ █ █ █ █
+  ▘▘ ▝▝    █   ███  ███ ███ ██  ███
 ```
 
-Mascot keeps fixed pixel geometry and is vertically centered beside a readable five-row `PI CODE` label. Both use the same `█` block vocabulary, with no crop or animation.
+Mascot keeps fixed pixel geometry beside a compact, readable four-row `PI CODE` label. Both use the same `█` block vocabulary, with no crop or animation.
 
 ## Theme-aware color
 
