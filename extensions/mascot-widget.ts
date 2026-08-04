@@ -4,18 +4,14 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-const DRAWING_WIDTH = 9;
-
 export default function (pi: ExtensionAPI): void {
   pi.on("session_start", (_event, ctx) => {
     ctx.ui.setWidget("mascot", (_tui, theme) => {
       // Recalcule style depuis thème à chaque rendu : aucun ANSI ni hexadécimal figé.
       const body = (text: string): string => theme.fg("accent", text);
       return {
-        render(width: number): string[] {
-          const safeWidth = Number.isFinite(width) ? Math.max(0, Math.floor(width)) : 0;
-          const leftPadding = Math.max(0, safeWidth - DRAWING_WIDTH);
-          const padding = " ".repeat(leftPadding);
+        render(_width: number): string[] {
+          const padding = "";
 
           return [
             padding + " " + body("▐▛███▜▌") + " ",

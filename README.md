@@ -1,6 +1,6 @@
 # pi-claude-mascot
 
-Pixel-art mascot widget for [Pi](https://pi.dev/). Displays small mascot above editor, aligned right. Mascot color adapts automatically to active Pi theme.
+Pixel-art mascot widget for [Pi](https://pi.dev/). Displays small mascot above editor, aligned left. Mascot color adapts automatically to active Pi theme.
 
 ## Install
 
