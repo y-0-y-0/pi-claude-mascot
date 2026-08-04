@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.5 - 2026-08-04
+
+- Rebuilt `PI CODE` as a readable five-row pixel font.
+- Centered mascot vertically beside label.
+- Kept block-character style and active theme accent.
+
 ## 1.0.4 - 2026-08-04
 
 - Replaced label glyphs with same `█` block character used by mascot.

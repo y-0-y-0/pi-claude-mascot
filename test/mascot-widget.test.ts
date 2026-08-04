@@ -2,8 +2,11 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import registerMascot from "../extensions/mascot-widget.ts";
-import { MASCOT_ART, PI_CODE_ART, renderMascot } from "../extensions/mascot-widget.ts";
+import registerMascot, {
+  MASCOT_ART,
+  PI_CODE_ART,
+  renderMascot,
+} from "../extensions/mascot-widget.ts";
 
 type MascotTheme = {
   fg(color: "accent", text: string): string;
@@ -25,6 +28,14 @@ type SessionStartHandler = (
     };
   },
 ) => void;
+
+const EXPECTED_LINES = [
+  `           ${PI_CODE_ART[0]}`,
+  ` ${MASCOT_ART[0]}   ${PI_CODE_ART[1]}`,
+  `${MASCOT_ART[1]}  ${PI_CODE_ART[2]}`,
+  `  ${MASCOT_ART[2]}    ${PI_CODE_ART[3]}`,
+  `           ${PI_CODE_ART[4]}`,
+];
 
 test("registers mascot widget on session_start with default placement", () => {
   let sessionStart: SessionStartHandler | undefined;
@@ -51,44 +62,31 @@ test("registers mascot widget on session_start with default placement", () => {
 
   assert.ok(widgetFactory);
   const widget = widgetFactory({}, {
-    fg: (_color, text) => text,
+    fg: (color, text) => {
+      assert.equal(color, "accent");
+      return text;
+    },
   });
-  assert.deepEqual(widget.render(80), [
-    ` ${MASCOT_ART[0]}   ${PI_CODE_ART[0]}`,
-    `${MASCOT_ART[1]}  ${PI_CODE_ART[1]}`,
-    `  ${MASCOT_ART[2]}    ${PI_CODE_ART[2]}`,
-  ]);
+
+  assert.deepEqual(widget.render(80), EXPECTED_LINES);
   assert.doesNotThrow(() => widget.invalidate());
 });
 
-test("renders mascot left-aligned with stable pixel geometry", () => {
+test("renders readable five-row PI CODE text with mascot centered beside it", () => {
   const lines = renderMascot((text) => text);
 
-  assert.deepEqual(lines, [
-    ` ${MASCOT_ART[0]}   ${PI_CODE_ART[0]}`,
-    `${MASCOT_ART[1]}  ${PI_CODE_ART[1]}`,
-    `  ${MASCOT_ART[2]}    ${PI_CODE_ART[2]}`,
-  ]);
-  assert.equal(PI_CODE_ART.length, 3);
+  assert.deepEqual(lines, EXPECTED_LINES);
+  assert.equal(PI_CODE_ART.length, 5);
   assert.ok(PI_CODE_ART.every((line) => /^[█ ]+$/.test(line)));
-  assert.deepEqual(lines.map((line) => line.length), [41, 41, 41]);
+  assert.deepEqual(lines.map((line) => line.length), [35, 35, 35, 35, 35]);
 });
 
-test("applies active theme colorizer to every mascot row", () => {
-  const terracotta = renderMascot((text) => `<terracotta>${text}</terracotta>`);
-  const blue = renderMascot((text) => `<blue>${text}</blue>`);
+test("applies active theme colorizer to mascot and every PI CODE row", () => {
+  const accent = renderMascot((text) => `<accent>${text}</accent>`);
+  const muted = renderMascot((text) => `<muted>${text}</muted>`);
 
-  assert.notDeepEqual(terracotta, blue);
-  assert.equal(
-    terracotta[0],
-    ` <terracotta>${MASCOT_ART[0]}</terracotta>   <terracotta>${PI_CODE_ART[0]}</terracotta>`,
-  );
-  assert.equal(
-    terracotta[1],
-    `<terracotta>${MASCOT_ART[1]}</terracotta>  <terracotta>${PI_CODE_ART[1]}</terracotta>`,
-  );
-  assert.equal(
-    terracotta[2],
-    `  <terracotta>${MASCOT_ART[2]}</terracotta>    <terracotta>${PI_CODE_ART[2]}</terracotta>`,
-  );
+  assert.notDeepEqual(accent, muted);
+  assert.equal(accent.length, 5);
+  assert.ok(accent.every((line) => line.includes("<accent>")));
+  assert.ok(accent.every((line) => !line.includes("<muted>")));
 });
