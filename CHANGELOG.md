@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.8 - 2026-08-04
+
+- Replaced generated font with supplied three-row `PI CODE` artwork.
+- Matched label height exactly to mascot.
+
 ## 1.0.7 - 2026-08-04
 
 - Widened `PI CODE` glyphs and letter spacing.

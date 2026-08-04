@@ -30,10 +30,9 @@ type SessionStartHandler = (
 ) => void;
 
 const EXPECTED_LINES = [
-  `           ${PI_CODE_ART[0]}`,
-  ` ${MASCOT_ART[0]}   ${PI_CODE_ART[1]}`,
-  `${MASCOT_ART[1]}  ${PI_CODE_ART[2]}`,
-  `  ${MASCOT_ART[2]}    ${PI_CODE_ART[3]}`,
+  ` ${MASCOT_ART[0]}   ${PI_CODE_ART[0]}`,
+  `${MASCOT_ART[1]}  ${PI_CODE_ART[1]}`,
+  `  ${MASCOT_ART[2]}    ${PI_CODE_ART[2]}`,
 ];
 
 test("registers mascot widget on session_start with default placement", () => {
@@ -71,13 +70,13 @@ test("registers mascot widget on session_start with default placement", () => {
   assert.doesNotThrow(() => widget.invalidate());
 });
 
-test("renders readable four-row PI CODE text beside mascot", () => {
+test("renders supplied three-row PI CODE artwork beside mascot", () => {
   const lines = renderMascot((text) => text);
 
   assert.deepEqual(lines, EXPECTED_LINES);
-  assert.equal(PI_CODE_ART.length, 4);
-  assert.ok(PI_CODE_ART.every((line) => /^[█ ]+$/.test(line)));
-  assert.deepEqual(lines.map((line) => line.length), [53, 53, 53, 53]);
+  assert.equal(PI_CODE_ART.length, 3);
+  assert.ok(PI_CODE_ART.every((line) => /^[█▄▀ ]+$/.test(line)));
+  assert.deepEqual(lines.map((line) => line.length), [50, 48, 50]);
 });
 
 test("applies active theme colorizer to mascot and every PI CODE row", () => {
@@ -85,7 +84,7 @@ test("applies active theme colorizer to mascot and every PI CODE row", () => {
   const muted = renderMascot((text) => `<muted>${text}</muted>`);
 
   assert.notDeepEqual(accent, muted);
-  assert.equal(accent.length, 4);
+  assert.equal(accent.length, 3);
   assert.ok(accent.every((line) => line.includes("<accent>")));
   assert.ok(accent.every((line) => !line.includes("<muted>")));
 });
