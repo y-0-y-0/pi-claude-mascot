@@ -2,11 +2,15 @@
 // Source: https://pi.dev/docs/latest/extensions
 // La mascotte reprend automatiquement les couleurs sémantiques du thème Pi courant.
 
+import { homedir } from "node:os";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext, ThemeColor } from "@earendil-works/pi-coding-agent";
 
 const DEFAULT_GAP = 2;
 const MAX_GAP = 8;
 export const MASCOT_PREFERENCES_TYPE = "pi-claude-mascot.preferences";
+export const MASCOT_GLOBAL_PREFERENCES_ENV = "PI_CLAUDE_MASCOT_PREFERENCES_PATH";
 export const MASCOT_USAGE = "Usage: /mascot [on|off|label [on|off]|gap 0-8|status|reset|help]";
 export const MASCOT_SPARKLE_FRAMES = ["·", "✢", "✶", "✻", "✽", "✻", "✶", "✢", "·"] as const;
 export const MASCOT_SPARKLE_INTERVAL_MS = 120;
@@ -87,6 +91,37 @@ export function isMascotPreferences(value: unknown): value is MascotPreferences 
   );
 }
 
+export function getGlobalPreferencesPath(): string {
+  const configuredPath = process.env[MASCOT_GLOBAL_PREFERENCES_ENV];
+  if (configuredPath) return configuredPath;
+
+  const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+  return join(agentDir, "pi-claude-mascot.json");
+}
+
+export function readGlobalPreferences(filePath = getGlobalPreferencesPath()): MascotPreferences | undefined {
+  try {
+    const data: unknown = JSON.parse(readFileSync(filePath, "utf8"));
+    return isMascotPreferences(data) ? data : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function writeGlobalPreferences(
+  preferences: MascotPreferences,
+  filePath = getGlobalPreferencesPath(),
+): void {
+  try {
+    mkdirSync(dirname(filePath), { recursive: true });
+    const temporaryPath = `${filePath}.${process.pid}.tmp`;
+    writeFileSync(temporaryPath, `${JSON.stringify(preferences, null, 2)}\n`, "utf8");
+    renameSync(temporaryPath, filePath);
+  } catch {
+    // Session persistence remains available if global file storage is unavailable.
+  }
+}
+
 export function isMascotAnimatedState(state: MascotState): boolean {
   return state === "thinking" || state === "working";
 }
@@ -160,11 +195,13 @@ export default function (pi: ExtensionAPI): void {
   let setSparkleAnimation: ((active: boolean) => void) | undefined;
 
   const persistPreferences = (): void => {
-    pi.appendEntry<MascotPreferences>(MASCOT_PREFERENCES_TYPE, {
+    const preferences: MascotPreferences = {
       enabled,
       showLabel,
       gap,
-    });
+    };
+    pi.appendEntry<MascotPreferences>(MASCOT_PREFERENCES_TYPE, preferences);
+    writeGlobalPreferences(preferences);
   };
 
   const getPreferences = (): MascotPreferences => ({ enabled, showLabel, gap });
@@ -189,6 +226,13 @@ export default function (pi: ExtensionAPI): void {
   };
 
   const restorePreferences = (ctx: ExtensionContext): void => {
+    const globalPreferences = readGlobalPreferences();
+    if (globalPreferences) {
+      enabled = globalPreferences.enabled;
+      showLabel = globalPreferences.showLabel;
+      gap = globalPreferences.gap;
+    }
+
     for (const entry of [...ctx.sessionManager.getBranch()].reverse()) {
       if (entry.type !== "custom" || entry.customType !== MASCOT_PREFERENCES_TYPE) continue;
       if (!isMascotPreferences(entry.data)) continue;

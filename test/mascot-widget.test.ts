@@ -1,9 +1,13 @@
 import { strict as assert } from "node:assert";
-import { test } from "node:test";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { rmSync, writeFileSync } from "node:fs";
+import { beforeEach, test } from "node:test";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import registerMascot, {
   MASCOT_ART,
+  MASCOT_GLOBAL_PREFERENCES_ENV,
   MASCOT_HELP,
   MASCOT_PREFERENCES_TYPE,
   MASCOT_SPARKLE_FRAMES,
@@ -12,12 +16,21 @@ import registerMascot, {
   MASCOT_STATE_COLORS,
   PI_CODE_ART,
   formatMascotStatus,
+  getGlobalPreferencesPath,
   isMascotAnimatedState,
   isMascotPreferences,
   normalizeGap,
   parseMascotCommand,
   renderMascot,
+  readGlobalPreferences,
+  writeGlobalPreferences,
 } from "../extensions/mascot-widget.ts";
+
+const TEST_GLOBAL_PREFERENCES_PATH = join(tmpdir(), `pi-claude-mascot-test-${process.pid}.json`);
+process.env[MASCOT_GLOBAL_PREFERENCES_ENV] = TEST_GLOBAL_PREFERENCES_PATH;
+beforeEach(() => {
+  rmSync(TEST_GLOBAL_PREFERENCES_PATH, { force: true });
+});
 
 type MascotTheme = {
   fg(color: string, text: string): string;
@@ -222,6 +235,55 @@ test("validates and formats persisted preferences", () => {
     formatMascotStatus(false, true, 3, "working"),
     "Mascot: disabled; PI CODE label: enabled; Gap: 3; State: working",
   );
+});
+
+test("persists preferences globally for new sessions", async () => {
+  let sessionStart: MascotHandler | undefined;
+  let command: CommandDefinition | undefined;
+  let widgetFactory: ((tui: { requestRender(): void }, theme: MascotTheme) => MascotWidget) | undefined;
+  const pi = {
+    registerCommand(_name: string, definition: CommandDefinition): void {
+      command = definition;
+    },
+    appendEntry(): void {},
+    on(event: string, handler: MascotHandler): void {
+      if (event === "session_start") sessionStart = handler;
+    },
+  } as unknown as ExtensionAPI;
+  const context: MascotContext = {
+    ui: {
+      setWidget(_key, factory): void {
+        widgetFactory = factory;
+      },
+      notify(): void {},
+    },
+    sessionManager: { getBranch: () => [] },
+  };
+
+  registerMascot(pi);
+  sessionStart?.({}, context);
+  assert.ok(command);
+  await command.handler("reset", context);
+  assert.deepEqual(readGlobalPreferences(), { enabled: true, showLabel: false, gap: 2 });
+
+  sessionStart?.({}, context);
+  assert.ok(widgetFactory);
+  const widget = widgetFactory({ requestRender(): void {} }, { fg: (_color, text) => text });
+  assert.deepEqual(widget.render(80), [
+    ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`,
+    MASCOT_ART[1],
+    `  ${MASCOT_ART[2]}  `,
+  ]);
+  assert.equal(getGlobalPreferencesPath(), TEST_GLOBAL_PREFERENCES_PATH);
+  widget.dispose?.();
+});
+
+test("ignores malformed global preferences", () => {
+  writeGlobalPreferences({ enabled: true, showLabel: false, gap: 2 });
+  const invalidPath = TEST_GLOBAL_PREFERENCES_PATH;
+  process.env[MASCOT_GLOBAL_PREFERENCES_ENV] = invalidPath;
+  writeFileSync(invalidPath, "not-json", "utf8");
+  assert.equal(readGlobalPreferences(invalidPath), undefined);
 });
 
 test("handles strict mascot commands, persistence, and live widget updates", async () => {

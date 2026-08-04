@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0 - 2026-08-04
+
+- Added global preference persistence across new Pi sessions.
+- Store mascot settings in `~/.pi/agent/pi-claude-mascot.json`.
+- Keep valid current-session branch preference as higher-priority override.
+- Added atomic preference writes, malformed-file tolerance, and cross-session regression coverage.
+
 ## 1.6.0 - 2026-08-04
 
 - Changed `/mascot reset` defaults to hide the `PI CODE` label.

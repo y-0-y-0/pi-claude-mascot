@@ -49,7 +49,7 @@ Repeated commands with no setting change do not create duplicate session prefere
 
 A fresh session without saved preferences starts with `PI CODE` visible. Reset intentionally uses quieter defaults and hides it.
 
-Settings are persisted in the current Pi session branch and restored when that session is resumed. They are not global across unrelated sessions.
+Settings are persisted globally in `~/.pi/agent/pi-claude-mascot.json`, so they survive new Pi sessions. A valid preference in the current session branch takes priority. Set `PI_CLAUDE_MASCOT_PREFERENCES_PATH` to override global file path for managed environments or tests.
 
 ## Dynamic state
 
