@@ -1,26 +1,29 @@
-// Source: https://pi.dev/docs/latest/tui ("Widgets Above/Below Editor").
-// Source: https://pi.dev/docs/latest/extensions.
-// La mascotte reprend automatiquement couleur "accent" du thème Pi courant.
+// Source: https://pi.dev/docs/latest/tui ("Widgets Above/Below Editor")
+// Source: https://pi.dev/docs/latest/extensions
+// La mascotte reprend automatiquement la couleur "accent" du thème Pi courant.
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
+export const MASCOT_ART = [
+  "▐▛███▜▌",
+  "▝▜█████▛▘",
+  "▘▘ ▝▝",
+] as const;
+
+export function renderMascot(colorize: (text: string) => string): string[] {
+  return [
+    ` ${colorize(MASCOT_ART[0])} `,
+    colorize(MASCOT_ART[1]),
+    `  ${colorize(MASCOT_ART[2])}  `,
+  ];
+}
+
 export default function (pi: ExtensionAPI): void {
   pi.on("session_start", (_event, ctx) => {
-    ctx.ui.setWidget("mascot", (_tui, theme) => {
-      // Recalcule style depuis thème à chaque rendu : aucun ANSI ni hexadécimal figé.
-      const body = (text: string): string => theme.fg("accent", text);
-      return {
-        render(_width: number): string[] {
-          const padding = "";
-
-          return [
-            padding + " " + body("▐▛███▜▌") + " ",
-            padding + body("▝▜█████▛▘"),
-            padding + "  " + body("▘▘ ▝▝") + "  ",
-          ];
-        },
-        invalidate(): void {},
-      };
-    });
+    ctx.ui.setWidget("mascot", (_tui, theme) => ({
+      render: (_width: number): string[] =>
+        renderMascot((text) => theme.fg("accent", text)),
+      invalidate(): void {},
+    }));
   });
 }

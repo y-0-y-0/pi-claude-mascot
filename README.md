@@ -1,6 +1,6 @@
 # pi-claude-mascot
 
-Pixel-art mascot widget for [Pi](https://pi.dev/). Displays small mascot above editor, aligned left. Mascot color adapts automatically to active Pi theme.
+Theme-aware pixel-art mascot widget for [Pi](https://pi.dev/). Displays small mascot above editor, aligned left.
 
 ## Install
 
@@ -22,11 +22,23 @@ pi -e ./extensions/mascot-widget.ts
   ▘▘ ▝▝
 ```
 
+Mascot keeps fixed 9-column pixel geometry. Its three rows stay left-aligned, with no crop or animation.
+
 ## Theme-aware color
 
-Mascot uses semantic Pi color `accent` through `theme.fg("accent", text)`. No hardcoded ANSI escape or hex color. Switching Pi theme automatically changes mascot color on next render.
+Mascot uses semantic Pi color `accent` through `theme.fg("accent", text)`. Color is recalculated during rendering, so mascot follows active Pi theme without hardcoded ANSI escapes or hex colors.
 
-Rendering stays compatible with universal terminals.
+Background remains transparent. Rendering uses plain Unicode block characters and works in universal terminals.
+
+## Development
+
+Requires Node.js 22+, matching current Pi runtime.
+
+```bash
+npm test
+npm run pack:check
+pi -e ./extensions/mascot-widget.ts -p ""
+```
 
 Reference image: https://x.com/EricBuess/status/1973392076550123946
 
