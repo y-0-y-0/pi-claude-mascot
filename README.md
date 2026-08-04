@@ -22,7 +22,7 @@ pi -e ./extensions/mascot-widget.ts
   ▘▘ ▝▝    ██     ██   ▀█████ ▀████▀ ████▀  ██▄▄▄▄
 ```
 
-Mascot keeps fixed pixel geometry beside supplied three-row `PI CODE` artwork. Both use matching block characters, with no crop.
+Mascot keeps fixed pixel geometry beside supplied three-row `PI CODE` artwork. Both use matching block characters, with no crop. Example below shows label visible.
 
 Mascot displays a sparkle immediately after its first row. It stays on `·` when idle, after success, or after error. It cycles through `· ✢ ✶ ✻ ✽ ✻ ✶ ✢ ·` every 120 ms only while Pi is thinking or executing work. Animation uses the existing widget and is cleaned up when Pi disposes it.
 
@@ -44,6 +44,8 @@ Mascot displays a sparkle immediately after its first row. It stays on `·` when
 Custom label text is intentionally not supported.
 
 Repeated commands with no setting change do not create duplicate session preference entries or trigger unnecessary widget redraws.
+
+`/mascot reset` enables mascot, hides `PI CODE`, and restores gap `2`.
 
 Settings are persisted in the current Pi session branch and restored when that session is resumed. They are not global across unrelated sessions.
 

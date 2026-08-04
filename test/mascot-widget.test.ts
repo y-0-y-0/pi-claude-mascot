@@ -318,13 +318,13 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   assert.equal(notifications.at(-1)?.message, "Mascot settings reset");
   assert.deepEqual(appended.at(-1), {
     customType: MASCOT_PREFERENCES_TYPE,
-    data: { enabled: true, showLabel: true, gap: 2 },
+    data: { enabled: true, showLabel: false, gap: 2 },
   });
   assert.equal(requestRenderCount, 5);
 
   events.get("agent_start")?.({}, context);
   renderedColors.length = 0;
-  assert.equal(widget.render(80)[0], ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}  ${PI_CODE_ART[0]}`);
+  assert.equal(widget.render(80)[0], ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`);
   assert.ok(renderedColors.every((color) => color === "thinkingText"));
   events.get("tool_execution_start")?.({}, context);
   renderedColors.length = 0;
@@ -336,7 +336,7 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   widget.render(80);
   assert.ok(renderedColors.every((color) => color === "error"));
   await command.handler("status", context);
-  assert.equal(notifications.at(-1)?.message, "Mascot: enabled; PI CODE label: enabled; Gap: 2; State: error");
+  assert.equal(notifications.at(-1)?.message, "Mascot: enabled; PI CODE label: disabled; Gap: 2; State: error");
 
   widget.dispose?.();
   sessionStart({}, {
@@ -353,9 +353,9 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
     },
   });
   assert.deepEqual(restoredWidget.render(80), [
-    ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}  ${PI_CODE_ART[0]}`,
-    `${MASCOT_ART[1]}  ${PI_CODE_ART[1]}`,
-    `  ${MASCOT_ART[2]}    ${PI_CODE_ART[2]}`,
+    ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`,
+    MASCOT_ART[1],
+    `  ${MASCOT_ART[2]}  `,
   ]);
   events.get("agent_start")?.({}, context);
   events.get("agent_end")?.({}, context);

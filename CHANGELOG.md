@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.0 - 2026-08-04
+
+- Changed `/mascot reset` defaults to hide the `PI CODE` label.
+- Reset now restores `enabled=true`, `showLabel=false`, and `gap=2`.
+- Added regression coverage for hidden label after reset and session restoration.
+
 ## 1.5.0 - 2026-08-04
 
 - Limited sparkle animation to active `thinking` and `working` states.

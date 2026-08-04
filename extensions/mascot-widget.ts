@@ -294,7 +294,7 @@ export default function (pi: ExtensionAPI): void {
       }
 
       if (command.type === "reset") {
-        updatePreferences({ enabled: true, showLabel: true, gap: DEFAULT_GAP });
+        updatePreferences({ enabled: true, showLabel: false, gap: DEFAULT_GAP });
         ctx.ui.notify("Mascot settings reset", "info");
         return;
       }
