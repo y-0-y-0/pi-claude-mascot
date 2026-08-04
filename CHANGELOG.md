@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.7 - 2026-08-04
+
+- Widened `PI CODE` glyphs and letter spacing.
+- Kept compact four-row height.
+
 ## 1.0.6 - 2026-08-04
 
 - Reduced `PI CODE` pixel font from five rows to four.

@@ -77,7 +77,7 @@ test("renders readable four-row PI CODE text beside mascot", () => {
   assert.deepEqual(lines, EXPECTED_LINES);
   assert.equal(PI_CODE_ART.length, 4);
   assert.ok(PI_CODE_ART.every((line) => /^[█ ]+$/.test(line)));
-  assert.deepEqual(lines.map((line) => line.length), [35, 35, 35, 35]);
+  assert.deepEqual(lines.map((line) => line.length), [53, 53, 53, 53]);
 });
 
 test("applies active theme colorizer to mascot and every PI CODE row", () => {

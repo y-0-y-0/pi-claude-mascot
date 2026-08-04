@@ -4,9 +4,9 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-const GLYPH_WIDTH = 3;
-const LETTER_GAP = " ";
-const WORD_GAP = "  ";
+const GLYPH_WIDTH = 5;
+const LETTER_GAP = "  ";
+const WORD_GAP = "    ";
 const MASCOT_WIDTH = 9;
 
 export const MASCOT_ART = [
@@ -16,10 +16,10 @@ export const MASCOT_ART = [
 ] as const;
 
 const PI_CODE_GLYPHS = [
-  ["██", "███", "███", "███", "██", "███"],
-  ["█ █", " █", "█", "█ █", "█ █", "██"],
-  ["██", " █", "█", "█ █", "█ █", "█"],
-  ["█", "███", "███", "███", "██", "███"],
+  ["████", "█████", "█████", "█████", "████", "█████"],
+  ["█   █", "  █", "█", "█   █", "█   █", "███"],
+  ["████", "  █", "█", "█   █", "█   █", "█"],
+  ["█", "█████", "█████", "█████", "████", "█████"],
 ] as const;
 
 function renderTextRow(glyphs: readonly string[]): string {
