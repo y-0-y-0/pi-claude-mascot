@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import registerMascot from "../extensions/mascot-widget.ts";
-import { MASCOT_ART, renderMascot } from "../extensions/mascot-widget.ts";
+import { MASCOT_ART, PI_CODE_ART, renderMascot } from "../extensions/mascot-widget.ts";
 
 type MascotTheme = {
   fg(color: "accent", text: string): string;
@@ -54,9 +54,9 @@ test("registers mascot widget on session_start with default placement", () => {
     fg: (_color, text) => text,
   });
   assert.deepEqual(widget.render(80), [
-    ` ${MASCOT_ART[0]} `,
-    MASCOT_ART[1],
-    `  ${MASCOT_ART[2]}  `,
+    ` ${MASCOT_ART[0]}   ${PI_CODE_ART[0]}`,
+    `${MASCOT_ART[1]}  ${PI_CODE_ART[1]}`,
+    `  ${MASCOT_ART[2]}    ${PI_CODE_ART[2]}`,
   ]);
   assert.doesNotThrow(() => widget.invalidate());
 });
@@ -65,11 +65,12 @@ test("renders mascot left-aligned with stable pixel geometry", () => {
   const lines = renderMascot((text) => text);
 
   assert.deepEqual(lines, [
-    ` ${MASCOT_ART[0]} `,
-    MASCOT_ART[1],
-    `  ${MASCOT_ART[2]}  `,
+    ` ${MASCOT_ART[0]}   ${PI_CODE_ART[0]}`,
+    `${MASCOT_ART[1]}  ${PI_CODE_ART[1]}`,
+    `  ${MASCOT_ART[2]}    ${PI_CODE_ART[2]}`,
   ]);
-  assert.deepEqual(lines.map((line) => line.length), [9, 9, 9]);
+  assert.equal(PI_CODE_ART.length, 3);
+  assert.deepEqual(lines.map((line) => line.length), [47, 47, 47]);
 });
 
 test("applies active theme colorizer to every mascot row", () => {
@@ -77,7 +78,16 @@ test("applies active theme colorizer to every mascot row", () => {
   const blue = renderMascot((text) => `<blue>${text}</blue>`);
 
   assert.notDeepEqual(terracotta, blue);
-  assert.equal(terracotta[0], ` <terracotta>${MASCOT_ART[0]}</terracotta> `);
-  assert.equal(terracotta[1], `<terracotta>${MASCOT_ART[1]}</terracotta>`);
-  assert.equal(terracotta[2], `  <terracotta>${MASCOT_ART[2]}</terracotta>  `);
+  assert.equal(
+    terracotta[0],
+    ` <terracotta>${MASCOT_ART[0]}</terracotta>   <terracotta>${PI_CODE_ART[0]}</terracotta>`,
+  );
+  assert.equal(
+    terracotta[1],
+    `<terracotta>${MASCOT_ART[1]}</terracotta>  <terracotta>${PI_CODE_ART[1]}</terracotta>`,
+  );
+  assert.equal(
+    terracotta[2],
+    `  <terracotta>${MASCOT_ART[2]}</terracotta>    <terracotta>${PI_CODE_ART[2]}</terracotta>`,
+  );
 });
