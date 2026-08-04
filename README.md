@@ -1,6 +1,6 @@
 # pi-claude-mascot
 
-Pixel-art mascot widget for [Pi](https://pi.dev/). Displays small mascot above editor, aligned right. Mascot color adapts automatically to active Pi theme.
+Theme-aware pixel-art mascot widget for [Pi](https://pi.dev/). Mascot renders above the editor and stays aligned to the right edge.
 
 ## Install
 
@@ -8,7 +8,7 @@ Pixel-art mascot widget for [Pi](https://pi.dev/). Displays small mascot above e
 pi install npm:pi-claude-mascot
 ```
 
-Test local package before publishing:
+Test local extension before publishing:
 
 ```bash
 pi -e ./extensions/mascot-widget.ts
@@ -24,9 +24,25 @@ pi -e ./extensions/mascot-widget.ts
 
 ## Theme-aware color
 
-Mascot uses semantic Pi color `accent` through `theme.fg("accent", text)`. No hardcoded ANSI escape or hex color. Switching Pi theme automatically changes mascot color on next render.
+Mascot pixels use Pi semantic color `accent` through `theme.fg("accent", text)`. Color is recalculated during rendering, so mascot follows active theme without hardcoded ANSI escapes or hex colors.
 
-Rendering stays compatible with universal terminals.
+Background remains transparent. Rendering uses plain Unicode block characters and works in universal terminals.
+
+## Responsive behavior
+
+- Normal terminals: mascot is aligned to the right edge.
+- Narrow terminals: left side of mascot is cropped to keep every line within terminal width.
+- Zero or invalid width: widget returns empty lines instead of overflowing.
+
+## Development
+
+Requires Node.js 22+, matching current Pi runtime.
+
+```bash
+npm test
+npm run pack:check
+pi -e ./extensions/mascot-widget.ts -p ""
+```
 
 Reference image: https://x.com/EricBuess/status/1973392076550123946
 

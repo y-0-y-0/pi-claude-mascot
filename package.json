@@ -1,6 +1,6 @@
 {
   "name": "pi-claude-mascot",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Theme-aware pixel-art mascot widget for Pi, rendered above the editor.",
   "keywords": [
     "pi-package",
@@ -11,17 +11,31 @@
     "terminal"
   ],
   "license": "MIT",
+  "type": "module",
   "files": [
     "extensions",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
+  "scripts": {
+    "test": "node --test --experimental-strip-types test/mascot-widget.test.ts",
+    "pack:check": "npm pack --dry-run"
+  },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yoyo406/pi-claude-mascot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yoyo406/pi-claude-mascot/issues"
+  },
+  "homepage": "https://github.com/yoyo406/pi-claude-mascot#readme",
   "pi": {
     "extensions": [
       "./extensions"
