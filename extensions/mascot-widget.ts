@@ -8,6 +8,8 @@ const DEFAULT_GAP = 2;
 const MAX_GAP = 8;
 export const MASCOT_PREFERENCES_TYPE = "pi-claude-mascot.preferences";
 export const MASCOT_USAGE = "Usage: /mascot [on|off|label [on|off]|gap 0-8|status|reset|help]";
+export const MASCOT_SPARKLE_FRAMES = ["·", "✢", "✶", "✻", "✽", "✻", "✶", "✢", "·"] as const;
+export const MASCOT_SPARKLE_INTERVAL_MS = 120;
 export const MASCOT_HELP = [
   "/mascot             Toggle mascot",
   "/mascot on|off      Enable or disable mascot",
@@ -34,6 +36,7 @@ export const PI_CODE_ART = [
 export type MascotRenderOptions = {
   showLabel?: boolean;
   gap?: number;
+  sparkle?: string;
 };
 
 export const MASCOT_STATES = ["idle", "thinking", "working", "success", "error"] as const;
@@ -130,8 +133,9 @@ export function renderMascot(
   colorize: (text: string) => string,
   options: MascotRenderOptions = {},
 ): string[] {
+  const sparkle = options.sparkle ?? MASCOT_SPARKLE_FRAMES[0];
   const mascotRows = [
-    ` ${colorize(MASCOT_ART[0])} `,
+    ` ${colorize(`${MASCOT_ART[0]}${sparkle}`)}`,
     colorize(MASCOT_ART[1]),
     `  ${colorize(MASCOT_ART[2])}  `,
   ];
@@ -198,15 +202,32 @@ export default function (pi: ExtensionAPI): void {
 
   const installWidget = (ctx: ExtensionContext): void => {
     ctx.ui.setWidget("mascot", (tui, theme) => {
-      requestRender = () => tui.requestRender();
+      let sparkleIndex = 0;
+      const renderRequest = (): void => tui.requestRender();
+      const sparkleTimer = setInterval(() => {
+        if (!enabled) return;
+        sparkleIndex = (sparkleIndex + 1) % MASCOT_SPARKLE_FRAMES.length;
+        renderRequest();
+      }, MASCOT_SPARKLE_INTERVAL_MS);
+      const timerWithUnref = sparkleTimer as unknown as { unref?: () => void };
+      timerWithUnref.unref?.();
+      requestRender = renderRequest;
 
       return {
-        // State is read during every render, so commands do not need to reinstall widget.
+        // State and sparkle frame are read during every render.
         render: (_width: number): string[] =>
           enabled
-            ? renderMascot((text) => theme.fg(MASCOT_STATE_COLORS[state], text), { showLabel, gap })
+            ? renderMascot((text) => theme.fg(MASCOT_STATE_COLORS[state], text), {
+                showLabel,
+                gap,
+                sparkle: MASCOT_SPARKLE_FRAMES[sparkleIndex],
+              })
             : [],
         invalidate(): void {},
+        dispose(): void {
+          clearInterval(sparkleTimer);
+          if (requestRender === renderRequest) requestRender = undefined;
+        },
       };
     });
   };

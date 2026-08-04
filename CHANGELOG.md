@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.0 - 2026-08-04
+
+- Added animated sparkle after mascot first row.
+- Added exact sparkle sequence `· ✢ ✶ ✻ ✽ ✻ ✶ ✢ ·` at 120 ms intervals.
+- Added timer cleanup through widget `dispose()` and detached timer for non-interactive runs.
+- Added sparkle rendering and lifecycle regression tests.
+
 ## 1.3.0 - 2026-08-04
 
 - Added `/mascot reset` and `/mascot help`.

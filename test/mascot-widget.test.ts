@@ -6,6 +6,8 @@ import registerMascot, {
   MASCOT_ART,
   MASCOT_HELP,
   MASCOT_PREFERENCES_TYPE,
+  MASCOT_SPARKLE_FRAMES,
+  MASCOT_SPARKLE_INTERVAL_MS,
   MASCOT_USAGE,
   MASCOT_STATE_COLORS,
   PI_CODE_ART,
@@ -23,6 +25,7 @@ type MascotTheme = {
 type MascotWidget = {
   render(width: number): string[];
   invalidate(): void;
+  dispose?(): void;
 };
 type MascotContext = {
   ui: {
@@ -44,7 +47,7 @@ type CommandDefinition = {
 };
 
 const EXPECTED_LINES = [
-  ` ${MASCOT_ART[0]}   ${PI_CODE_ART[0]}`,
+  ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}  ${PI_CODE_ART[0]}`,
   `${MASCOT_ART[1]}  ${PI_CODE_ART[1]}`,
   `  ${MASCOT_ART[2]}    ${PI_CODE_ART[2]}`,
 ];
@@ -90,6 +93,7 @@ test("registers mascot widget on session_start with default placement", () => {
 
   assert.deepEqual(widget.render(80), EXPECTED_LINES);
   assert.doesNotThrow(() => widget.invalidate());
+  widget.dispose?.();
   assert.ok(events.has("agent_start"));
   assert.ok(events.has("tool_execution_start"));
   assert.ok(events.has("agent_end"));
@@ -105,13 +109,22 @@ test("renders supplied three-row PI CODE artwork beside mascot", () => {
 
   const noLabel = renderMascot((text) => text, { showLabel: false });
   assert.deepEqual(noLabel, [
-    ` ${MASCOT_ART[0]} `,
+    ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`,
     MASCOT_ART[1],
     `  ${MASCOT_ART[2]}  `,
   ]);
 
   const widerGap = renderMascot((text) => text, { gap: 4 });
-  assert.equal(widerGap[0], ` ${MASCOT_ART[0]}     ${PI_CODE_ART[0]}`);
+  assert.equal(widerGap[0], ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}    ${PI_CODE_ART[0]}`);
+});
+
+test("renders requested sparkle frame and exposes animation timing", () => {
+  assert.equal(MASCOT_SPARKLE_INTERVAL_MS, 120);
+  assert.deepEqual(MASCOT_SPARKLE_FRAMES, ["·", "✢", "✶", "✻", "✽", "✻", "✶", "✢", "·"]);
+  assert.equal(
+    renderMascot((text) => text, { showLabel: false, sparkle: "✽" })[0],
+    ` ${MASCOT_ART[0]}✽`,
+  );
 });
 
 test("normalizes configurable gap safely", () => {
@@ -239,7 +252,7 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   assert.equal(requestRenderCount, 4);
   assert.equal(widgetInstallCount, 1);
   assert.deepEqual(widget.render(80), [
-    ` ${MASCOT_ART[0]} `,
+    ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`,
     MASCOT_ART[1],
     `  ${MASCOT_ART[2]}  `,
   ]);
@@ -264,7 +277,7 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
 
   events.get("agent_start")?.({}, context);
   renderedColors.length = 0;
-  assert.equal(widget.render(80)[0], ` ${MASCOT_ART[0]}   ${PI_CODE_ART[0]}`);
+  assert.equal(widget.render(80)[0], ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}  ${PI_CODE_ART[0]}`);
   assert.ok(renderedColors.every((color) => color === "thinkingText"));
   events.get("tool_execution_start")?.({}, context);
   renderedColors.length = 0;
@@ -292,7 +305,7 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
     },
   });
   assert.deepEqual(restoredWidget.render(80), [
-    ` ${MASCOT_ART[0]}   ${PI_CODE_ART[0]}`,
+    ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}  ${PI_CODE_ART[0]}`,
     `${MASCOT_ART[1]}  ${PI_CODE_ART[1]}`,
     `  ${MASCOT_ART[2]}    ${PI_CODE_ART[2]}`,
   ]);
@@ -301,4 +314,5 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   renderedColors.length = 0;
   restoredWidget.render(80);
   assert.ok(renderedColors.every((color) => color === "success"));
+  restoredWidget.dispose?.();
 });

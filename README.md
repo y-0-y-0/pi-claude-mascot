@@ -22,7 +22,9 @@ pi -e ./extensions/mascot-widget.ts
   ▘▘ ▝▝    ██     ██   ▀█████ ▀████▀ ████▀  ██▄▄▄▄
 ```
 
-Mascot keeps fixed pixel geometry beside supplied three-row `PI CODE` artwork. Both use matching block characters, with no crop or animation.
+Mascot keeps fixed pixel geometry beside supplied three-row `PI CODE` artwork. Both use matching block characters, with no crop.
+
+Mascot displays a sparkle immediately after its first row. It cycles through `· ✢ ✶ ✻ ✽ ✻ ✶ ✢ ·` every 120 ms. Animation uses the existing widget and is cleaned up when Pi disposes it.
 
 ## Commands
 
