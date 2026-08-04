@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 - 2026-08-04
+
+- Added `/mascot reset` and `/mascot help`.
+- Extracted strict command parsing into exported `parseMascotCommand()`.
+- Avoided redundant preference persistence and widget redraws when values are unchanged.
+- Added parser and command deduplication regression tests.
+
 ## 1.2.0 - 2026-08-04
 
 - Added strict `/mascot` controls: `on`, `off`, `label on`, `label off`, `gap`, and `status`.

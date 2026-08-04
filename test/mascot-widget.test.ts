@@ -4,12 +4,15 @@ import { test } from "node:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import registerMascot, {
   MASCOT_ART,
+  MASCOT_HELP,
   MASCOT_PREFERENCES_TYPE,
+  MASCOT_USAGE,
   MASCOT_STATE_COLORS,
   PI_CODE_ART,
   formatMascotStatus,
   isMascotPreferences,
   normalizeGap,
+  parseMascotCommand,
   renderMascot,
 } from "../extensions/mascot-widget.ts";
 
@@ -118,6 +121,20 @@ test("normalizes configurable gap safely", () => {
   assert.equal(normalizeGap(Number.NaN), 2);
 });
 
+test("parses mascot commands strictly", () => {
+  assert.deepEqual(parseMascotCommand(""), { type: "toggle" });
+  assert.deepEqual(parseMascotCommand("  OFF  "), { type: "set-enabled", value: false });
+  assert.deepEqual(parseMascotCommand("label"), { type: "toggle-label" });
+  assert.deepEqual(parseMascotCommand("label on"), { type: "set-label", value: true });
+  assert.deepEqual(parseMascotCommand("gap 8"), { type: "set-gap", value: 8 });
+  assert.deepEqual(parseMascotCommand("status"), { type: "status" });
+  assert.deepEqual(parseMascotCommand("reset"), { type: "reset" });
+  assert.deepEqual(parseMascotCommand("help"), { type: "help" });
+  assert.deepEqual(parseMascotCommand("gap 9"), { type: "invalid" });
+  assert.deepEqual(parseMascotCommand("label off extra"), { type: "invalid" });
+  assert.deepEqual(parseMascotCommand("unknown"), { type: "invalid" });
+});
+
 test("applies active theme colorizer to mascot and every PI CODE row", () => {
   const accent = renderMascot((text) => `<accent>${text}</accent>`);
   const muted = renderMascot((text) => `<muted>${text}</muted>`);
@@ -210,7 +227,13 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   assert.equal(notifications.at(-1)?.type, "error");
   await command.handler("unknown", context);
   assert.equal(notifications.at(-1)?.type, "error");
+  assert.equal(notifications.at(-1)?.message, MASCOT_USAGE);
   await command.handler("on", context);
+  const appendedAfterOn = appended.length;
+  const redrawsAfterOn = requestRenderCount;
+  await command.handler("on", context);
+  assert.equal(appended.length, appendedAfterOn);
+  assert.equal(requestRenderCount, redrawsAfterOn);
   await command.handler("label off", context);
   await command.handler("gap 6", context);
   assert.equal(requestRenderCount, 4);
@@ -228,9 +251,20 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
     "Mascot: enabled; PI CODE label: disabled; Gap: 6; State: idle",
   );
 
+  await command.handler("help", context);
+  assert.equal(notifications.at(-1)?.message, MASCOT_HELP);
+
+  await command.handler("reset", context);
+  assert.equal(notifications.at(-1)?.message, "Mascot settings reset");
+  assert.deepEqual(appended.at(-1), {
+    customType: MASCOT_PREFERENCES_TYPE,
+    data: { enabled: true, showLabel: true, gap: 2 },
+  });
+  assert.equal(requestRenderCount, 5);
+
   events.get("agent_start")?.({}, context);
   renderedColors.length = 0;
-  assert.equal(widget.render(80)[0], ` ${MASCOT_ART[0]} `);
+  assert.equal(widget.render(80)[0], ` ${MASCOT_ART[0]}   ${PI_CODE_ART[0]}`);
   assert.ok(renderedColors.every((color) => color === "thinkingText"));
   events.get("tool_execution_start")?.({}, context);
   renderedColors.length = 0;
@@ -242,7 +276,7 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   widget.render(80);
   assert.ok(renderedColors.every((color) => color === "error"));
   await command.handler("status", context);
-  assert.equal(notifications.at(-1)?.message, "Mascot: enabled; PI CODE label: disabled; Gap: 6; State: error");
+  assert.equal(notifications.at(-1)?.message, "Mascot: enabled; PI CODE label: enabled; Gap: 2; State: error");
 
   sessionStart({}, {
     ...context,
@@ -258,9 +292,9 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
     },
   });
   assert.deepEqual(restoredWidget.render(80), [
-    ` ${MASCOT_ART[0]} `,
-    MASCOT_ART[1],
-    `  ${MASCOT_ART[2]}  `,
+    ` ${MASCOT_ART[0]}   ${PI_CODE_ART[0]}`,
+    `${MASCOT_ART[1]}  ${PI_CODE_ART[1]}`,
+    `  ${MASCOT_ART[2]}    ${PI_CODE_ART[2]}`,
   ]);
   events.get("agent_start")?.({}, context);
   events.get("agent_end")?.({}, context);

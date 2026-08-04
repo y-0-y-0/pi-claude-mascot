@@ -7,6 +7,17 @@ import type { ExtensionAPI, ExtensionContext, ThemeColor } from "@earendil-works
 const DEFAULT_GAP = 2;
 const MAX_GAP = 8;
 export const MASCOT_PREFERENCES_TYPE = "pi-claude-mascot.preferences";
+export const MASCOT_USAGE = "Usage: /mascot [on|off|label [on|off]|gap 0-8|status|reset|help]";
+export const MASCOT_HELP = [
+  "/mascot             Toggle mascot",
+  "/mascot on|off      Enable or disable mascot",
+  "/mascot label       Toggle PI CODE label",
+  "/mascot label on|off Show or hide PI CODE label",
+  "/mascot gap 0-8     Set spacing between mascot and label",
+  "/mascot status      Show current settings and state",
+  "/mascot reset       Restore default settings",
+  "/mascot help        Show this help",
+].join("\n");
 
 export const MASCOT_ART = [
   "▐▛███▜▌",
@@ -43,6 +54,17 @@ export type MascotPreferences = {
   gap: number;
 };
 
+export type MascotCommand =
+  | { type: "toggle" }
+  | { type: "set-enabled"; value: boolean }
+  | { type: "toggle-label" }
+  | { type: "set-label"; value: boolean }
+  | { type: "set-gap"; value: number }
+  | { type: "status" }
+  | { type: "reset" }
+  | { type: "help" }
+  | { type: "invalid" };
+
 export function normalizeGap(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_GAP;
   return Math.min(MAX_GAP, Math.max(0, Math.floor(value)));
@@ -60,6 +82,39 @@ export function isMascotPreferences(value: unknown): value is MascotPreferences 
     preferences.gap >= 0 &&
     preferences.gap <= MAX_GAP
   );
+}
+
+export function parseMascotCommand(args: string): MascotCommand {
+  const tokens = args.trim() ? args.trim().split(/\s+/) : [];
+  const [action, value] = tokens;
+  const normalizedAction = action?.toLowerCase();
+  const normalizedValue = value?.toLowerCase();
+
+  if (tokens.length === 0) return { type: "toggle" };
+
+  if ((normalizedAction === "on" || normalizedAction === "off") && tokens.length === 1) {
+    return { type: "set-enabled", value: normalizedAction === "on" };
+  }
+
+  if (normalizedAction === "label" && tokens.length === 1) return { type: "toggle-label" };
+
+  if (
+    normalizedAction === "label" &&
+    tokens.length === 2 &&
+    (normalizedValue === "on" || normalizedValue === "off")
+  ) {
+    return { type: "set-label", value: normalizedValue === "on" };
+  }
+
+  if (normalizedAction === "gap" && tokens.length === 2 && /^[0-8]$/.test(value ?? "")) {
+    return { type: "set-gap", value: Number(value) };
+  }
+
+  if (normalizedAction === "status" && tokens.length === 1) return { type: "status" };
+  if (normalizedAction === "reset" && tokens.length === 1) return { type: "reset" };
+  if (normalizedAction === "help" && tokens.length === 1) return { type: "help" };
+
+  return { type: "invalid" };
 }
 
 export function formatMascotStatus(
@@ -103,6 +158,26 @@ export default function (pi: ExtensionAPI): void {
     });
   };
 
+  const getPreferences = (): MascotPreferences => ({ enabled, showLabel, gap });
+
+  const updatePreferences = (next: MascotPreferences): boolean => {
+    const current = getPreferences();
+    if (
+      current.enabled === next.enabled &&
+      current.showLabel === next.showLabel &&
+      current.gap === next.gap
+    ) {
+      return false;
+    }
+
+    enabled = next.enabled;
+    showLabel = next.showLabel;
+    gap = next.gap;
+    requestRender?.();
+    persistPreferences();
+    return true;
+  };
+
   const restorePreferences = (ctx: ExtensionContext): void => {
     for (const entry of [...ctx.sessionManager.getBranch()].reverse()) {
       if (entry.type !== "custom" || entry.customType !== MASCOT_PREFERENCES_TYPE) continue;
@@ -137,63 +212,57 @@ export default function (pi: ExtensionAPI): void {
   };
 
   pi.registerCommand("mascot", {
-    description: "Control mascot: on, off, label, gap, or status",
+    description: "Control mascot: on, off, label, gap, status, reset, or help",
     handler: async (args, ctx) => {
-      const tokens = args.trim() ? args.trim().split(/\s+/) : [];
-      const [action, value] = tokens;
-      const normalizedAction = action?.toLowerCase();
-      const normalizedValue = value?.toLowerCase();
+      const command = parseMascotCommand(args);
 
-      if (tokens.length === 0) {
-        enabled = !enabled;
-        requestRender?.();
-        persistPreferences();
+      if (command.type === "toggle") {
+        updatePreferences({ ...getPreferences(), enabled: !enabled });
         ctx.ui.notify(`Mascot ${enabled ? "enabled" : "disabled"}`, "info");
         return;
       }
 
-      if ((normalizedAction === "on" || normalizedAction === "off") && tokens.length === 1) {
-        enabled = normalizedAction === "on";
-        requestRender?.();
-        persistPreferences();
+      if (command.type === "set-enabled") {
+        updatePreferences({ ...getPreferences(), enabled: command.value });
         ctx.ui.notify(`Mascot ${enabled ? "enabled" : "disabled"}`, "info");
         return;
       }
 
-      if (normalizedAction === "label" && tokens.length === 1) {
-        showLabel = !showLabel;
-        requestRender?.();
-        persistPreferences();
+      if (command.type === "toggle-label") {
+        updatePreferences({ ...getPreferences(), showLabel: !showLabel });
         ctx.ui.notify(`PI CODE label ${showLabel ? "enabled" : "disabled"}`, "info");
         return;
       }
 
-      if (
-        normalizedAction === "label" &&
-        tokens.length === 2 &&
-        (normalizedValue === "on" || normalizedValue === "off")
-      ) {
-        showLabel = normalizedValue === "on";
-        requestRender?.();
-        persistPreferences();
+      if (command.type === "set-label") {
+        updatePreferences({ ...getPreferences(), showLabel: command.value });
         ctx.ui.notify(`PI CODE label ${showLabel ? "enabled" : "disabled"}`, "info");
         return;
       }
 
-      if (normalizedAction === "gap" && tokens.length === 2 && /^[0-8]$/.test(value ?? "")) {
-        gap = Number(value);
-        requestRender?.();
-        persistPreferences();
+      if (command.type === "set-gap") {
+        updatePreferences({ ...getPreferences(), gap: command.value });
         ctx.ui.notify(`Mascot gap: ${gap}`, "info");
         return;
       }
 
-      if (normalizedAction === "status" && tokens.length === 1) {
+      if (command.type === "status") {
         ctx.ui.notify(formatMascotStatus(enabled, showLabel, gap, state), "info");
         return;
       }
 
-      ctx.ui.notify("Usage: /mascot [on|off|label [on|off]|gap 0-8|status]", "error");
+      if (command.type === "reset") {
+        updatePreferences({ enabled: true, showLabel: true, gap: DEFAULT_GAP });
+        ctx.ui.notify("Mascot settings reset", "info");
+        return;
+      }
+
+      if (command.type === "help") {
+        ctx.ui.notify(MASCOT_HELP, "info");
+        return;
+      }
+
+      ctx.ui.notify(MASCOT_USAGE, "error");
     },
   });
 

@@ -35,9 +35,13 @@ Mascot keeps fixed pixel geometry beside supplied three-row `PI CODE` artwork. B
 /mascot label off   Hide PI CODE label
 /mascot gap 0-8     Set spacing between mascot and label
 /mascot status      Show current mascot settings and state
+/mascot reset       Restore default settings
+/mascot help        Show command help
 ```
 
 Custom label text is intentionally not supported.
+
+Repeated commands with no setting change do not create duplicate session preference entries or trigger unnecessary widget redraws.
 
 Settings are persisted in the current Pi session branch and restored when that session is resumed. They are not global across unrelated sessions.
 
