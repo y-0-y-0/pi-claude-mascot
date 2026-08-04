@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.1 - 2026-08-04
+
+- Republished the aligned three-row mascot widget release with the corrected package version.
+- Kept isolated local Pi validation documented to prevent duplicate global extension widgets.
+
 ## 1.9.0 - 2026-08-04
 
 - Removed the extra top-padding row from widget output.
