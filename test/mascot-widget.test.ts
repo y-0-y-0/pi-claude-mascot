@@ -17,7 +17,9 @@ import registerMascot, {
   MASCOT_STATE_COLORS,
   PI_CODE_ART,
   formatMascotStatus,
+  getMascotArgumentCompletions,
   getGlobalPreferencesPath,
+  getMascotRenderWidth,
   isMascotAnimatedState,
   isMascotPreferences,
   normalizeGap,
@@ -65,6 +67,7 @@ type MascotContext = {
 type MascotHandler = (event: unknown, context: MascotContext) => void;
 
 type CommandDefinition = {
+  getArgumentCompletions?(prefix: string): Array<{ value: string; label: string; description?: string }> | null;
   handler(args: string, context: MascotContext): Promise<void> | void;
 };
 
@@ -118,6 +121,95 @@ test("registers mascot widget on session_start with default placement", () => {
   assert.ok(events.has("agent_start"));
   assert.ok(events.has("tool_execution_start"));
   assert.ok(events.has("agent_end"));
+  assert.ok(events.has("agent_settled"));
+  assert.ok(events.has("session_tree"));
+});
+
+test("hides the complete widget when fixed artwork cannot fit the terminal width", () => {
+  let sessionStart: MascotHandler | undefined;
+  let widgetFactory: ((tui: { requestRender(): void }, theme: MascotTheme) => MascotWidget) | undefined;
+  const pi = {
+    registerCommand(): void {},
+    appendEntry(): void {},
+    on(event: string, handler: MascotHandler): void {
+      if (event === "session_start") sessionStart = handler;
+    },
+  } as unknown as ExtensionAPI;
+
+  registerMascot(pi);
+  sessionStart?.({}, {
+    ui: {
+      setWidget(_key, factory): void {
+        widgetFactory = factory;
+      },
+      notify(): void {},
+    },
+    sessionManager: { getBranch: () => [] },
+  });
+
+  assert.ok(widgetFactory);
+  const widget = widgetFactory({ requestRender(): void {} }, { fg: (_color, text) => text });
+  assert.deepEqual(widget.render(44), []);
+  assert.deepEqual(widget.render(45), EXPECTED_LINES);
+  widget.dispose?.();
+});
+
+test("restores branch-specific preferences after session tree navigation", () => {
+  let sessionStart: MascotHandler | undefined;
+  let widgetFactory: ((tui: { requestRender(): void }, theme: MascotTheme) => MascotWidget) | undefined;
+  let requestRenderCount = 0;
+  let branch: Array<{ type: string; customType?: string; data?: unknown }> = [
+    {
+      type: "custom",
+      customType: MASCOT_PREFERENCES_TYPE,
+      data: { enabled: true, showLabel: false, gap: 2 },
+    },
+  ];
+  const events = new Map<string, MascotHandler>();
+  const pi = {
+    registerCommand(): void {},
+    appendEntry(): void {},
+    on(event: string, handler: MascotHandler): void {
+      events.set(event, handler);
+      if (event === "session_start") sessionStart = handler;
+    },
+  } as unknown as ExtensionAPI;
+
+  registerMascot(pi);
+  const context: MascotContext = {
+    ui: {
+      setWidget(_key, factory): void {
+        widgetFactory = factory;
+      },
+      notify(): void {},
+    },
+    sessionManager: { getBranch: () => branch },
+  };
+
+  sessionStart?.({}, context);
+  assert.ok(widgetFactory);
+  const widget = widgetFactory({ requestRender: () => requestRenderCount++ }, { fg: (_color, text) => text });
+  assert.deepEqual(widget.render(80), [
+    ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}`,
+    MASCOT_ART[1],
+    `  ${MASCOT_ART[2]}  `,
+  ]);
+
+  branch = [
+    {
+      type: "custom",
+      customType: MASCOT_PREFERENCES_TYPE,
+      data: { enabled: true, showLabel: true, gap: 4 },
+    },
+  ];
+  events.get("session_tree")?.({}, context);
+  assert.equal(requestRenderCount, 1);
+  assert.deepEqual(widget.render(80), [
+    ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}    ${PI_CODE_ART[0]}`,
+    `${MASCOT_ART[1]}    ${PI_CODE_ART[1]}`,
+    `  ${MASCOT_ART[2]}      ${PI_CODE_ART[2]}`,
+  ]);
+  widget.dispose?.();
 });
 
 test("renders supplied three-row PI CODE artwork beside mascot at matching height", () => {
@@ -147,6 +239,24 @@ test("renders supplied three-row PI CODE artwork beside mascot at matching heigh
   assert.equal(widerGap[0], ` ${MASCOT_ART[0]}${MASCOT_SPARKLE_FRAMES[0]}    ${PI_CODE_ART[0]}`);
 });
 
+test("calculates fixed render width for label and mascot-only layouts", () => {
+  assert.equal(getMascotRenderWidth({ showLabel: true, gap: 2 }), 45);
+  assert.equal(getMascotRenderWidth({ showLabel: true, gap: 4 }), 47);
+  assert.equal(getMascotRenderWidth({ showLabel: false }), 9);
+});
+
+test("offers strict command completions for mascot controls", () => {
+  assert.deepEqual(
+    getMascotArgumentCompletions("label ")?.map((item) => item.value),
+    ["label on", "label off"],
+  );
+  assert.deepEqual(
+    getMascotArgumentCompletions("gap ")?.map((item) => item.value),
+    ["gap 0", "gap 1", "gap 2", "gap 3", "gap 4", "gap 5", "gap 6", "gap 7", "gap 8"],
+  );
+  assert.equal(getMascotArgumentCompletions("unknown"), null);
+});
+
 test("renders requested sparkle frame and exposes animation timing", () => {
   assert.equal(MASCOT_SPARKLE_INTERVAL_MS, 120);
   assert.deepEqual(MASCOT_SPARKLE_FRAMES, ["·", "✢", "✶", "✻", "✽", "✻", "✶", "✢", "·"]);
@@ -156,7 +266,7 @@ test("renders requested sparkle frame and exposes animation timing", () => {
   );
 });
 
-test("animates only during thinking or working states", async () => {
+test("animates only during thinking or working states", (testContext) => {
   assert.equal(isMascotAnimatedState("idle"), false);
   assert.equal(isMascotAnimatedState("thinking"), true);
   assert.equal(isMascotAnimatedState("working"), true);
@@ -188,20 +298,23 @@ test("animates only during thinking or working states", async () => {
   assert.ok(widgetFactory);
   const widget = widgetFactory({ requestRender: () => renderRequests++ }, { fg: (_color, text) => text });
 
+  testContext.mock.timers.enable({ apis: ["setInterval"] });
   try {
-    await new Promise((resolve) => setTimeout(resolve, MASCOT_SPARKLE_INTERVAL_MS + 30));
+    testContext.mock.timers.tick(MASCOT_SPARKLE_INTERVAL_MS);
     assert.equal(renderRequests, 0);
 
     events.get("agent_start")?.({}, {} as MascotContext);
-    await new Promise((resolve) => setTimeout(resolve, MASCOT_SPARKLE_INTERVAL_MS + 30));
+    testContext.mock.timers.tick(MASCOT_SPARKLE_INTERVAL_MS);
     assert.ok(renderRequests > 0);
 
     events.get("agent_end")?.({}, {} as MascotContext);
+    events.get("agent_settled")?.({}, {} as MascotContext);
     const requestsAfterIdle = renderRequests;
-    await new Promise((resolve) => setTimeout(resolve, MASCOT_SPARKLE_INTERVAL_MS + 30));
+    testContext.mock.timers.tick(MASCOT_SPARKLE_INTERVAL_MS);
     assert.equal(renderRequests, requestsAfterIdle);
   } finally {
     widget.dispose?.();
+    testContext.mock.timers.reset();
   }
 });
 
@@ -222,6 +335,31 @@ test("uses a safe absolute fallback for relative path configuration", () => {
     assert.equal(
       getGlobalPreferencesPath(),
       join(homedir(), ".pi", "agent", "pi-claude-mascot.json"),
+    );
+  } finally {
+    process.env[MASCOT_GLOBAL_PREFERENCES_ENV] = previousPath ?? TEST_GLOBAL_PREFERENCES_PATH;
+    if (previousAgentDirectory === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previousAgentDirectory;
+  }
+});
+
+test("expands home-relative preference paths", () => {
+  const previousPath = process.env[MASCOT_GLOBAL_PREFERENCES_ENV];
+  const previousAgentDirectory = process.env.PI_CODING_AGENT_DIR;
+
+  try {
+    process.env[MASCOT_GLOBAL_PREFERENCES_ENV] = "~/custom-mascot/preferences.json";
+    delete process.env.PI_CODING_AGENT_DIR;
+    assert.equal(
+      getGlobalPreferencesPath(),
+      join(homedir(), "custom-mascot", "preferences.json"),
+    );
+
+    delete process.env[MASCOT_GLOBAL_PREFERENCES_ENV];
+    process.env.PI_CODING_AGENT_DIR = "~/.pi-alt/agent";
+    assert.equal(
+      getGlobalPreferencesPath(),
+      join(homedir(), ".pi-alt", "agent", "pi-claude-mascot.json"),
     );
   } finally {
     process.env[MASCOT_GLOBAL_PREFERENCES_ENV] = previousPath ?? TEST_GLOBAL_PREFERENCES_PATH;
@@ -315,12 +453,49 @@ test("persists preferences globally for new sessions", async () => {
 });
 
 test("ignores malformed global preferences and keeps preference file private", () => {
-  writeGlobalPreferences({ enabled: true, showLabel: false, gap: 2 });
+  assert.equal(writeGlobalPreferences({ enabled: true, showLabel: false, gap: 2 }), true);
   assert.equal(statSync(TEST_GLOBAL_PREFERENCES_PATH).mode & 0o777, 0o600);
   const invalidPath = TEST_GLOBAL_PREFERENCES_PATH;
   process.env[MASCOT_GLOBAL_PREFERENCES_ENV] = invalidPath;
   writeFileSync(invalidPath, "not-json", "utf8");
   assert.equal(readGlobalPreferences(invalidPath), undefined);
+});
+
+test("warns once when global preference storage is unavailable", async () => {
+  const blockerPath = join(TEST_GLOBAL_PREFERENCES_DIRECTORY, "blocking-parent");
+  const previousPath = process.env[MASCOT_GLOBAL_PREFERENCES_ENV];
+  writeFileSync(blockerPath, "not-a-directory", "utf8");
+  process.env[MASCOT_GLOBAL_PREFERENCES_ENV] = join(blockerPath, "preferences.json");
+
+  let command: CommandDefinition | undefined;
+  const notifications: Array<{ message: string; type: "info" | "warning" | "error" | undefined }> = [];
+  const pi = {
+    registerCommand(_name: string, definition: CommandDefinition): void {
+      command = definition;
+    },
+    appendEntry(): void {},
+    on(): void {},
+  } as unknown as ExtensionAPI;
+  const context: MascotContext = {
+    ui: {
+      setWidget(): void {},
+      notify(message, type): void {
+        notifications.push({ message, type });
+      },
+    },
+    sessionManager: { getBranch: () => [] },
+  };
+
+  try {
+    registerMascot(pi);
+    assert.ok(command);
+    await command.handler("off", context);
+    await command.handler("label off", context);
+    assert.equal(notifications.filter(({ type }) => type === "warning").length, 1);
+  } finally {
+    process.env[MASCOT_GLOBAL_PREFERENCES_ENV] = previousPath ?? TEST_GLOBAL_PREFERENCES_PATH;
+    rmSync(blockerPath, { force: true });
+  }
 });
 
 test("ignores oversized, non-regular, and relative preference files", () => {
@@ -331,7 +506,7 @@ test("ignores oversized, non-regular, and relative preference files", () => {
 
   const relativePath = `pi-claude-mascot-relative-${process.pid}.json`;
   rmSync(relativePath, { force: true });
-  writeGlobalPreferences({ enabled: true, showLabel: true, gap: 2 }, relativePath);
+  assert.equal(writeGlobalPreferences({ enabled: true, showLabel: true, gap: 2 }, relativePath), false);
   assert.equal(readGlobalPreferences(relativePath), undefined);
   assert.equal(existsSync(relativePath), false);
 });
@@ -343,7 +518,7 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   let requestRenderCount = 0;
   let widgetInstallCount = 0;
   const renderedColors: string[] = [];
-  const notifications: Array<{ message: string; type?: "info" | "warning" | "error" }> = [];
+  const notifications: Array<{ message: string; type: "info" | "warning" | "error" | undefined }> = [];
   const appended: Array<{ customType: string; data: unknown }> = [];
   const events = new Map<string, MascotHandler>();
 
@@ -449,6 +624,10 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   events.get("agent_end")?.({}, context);
   renderedColors.length = 0;
   widget.render(80);
+  assert.equal(renderedColors.every((color) => color === "thinkingText"), true);
+  events.get("agent_settled")?.({}, context);
+  renderedColors.length = 0;
+  widget.render(80);
   assert.equal(renderedColors.every((color) => color === "error"), true);
   await command.handler("status", context);
   assert.equal(notifications.at(-1)?.message, "Mascot: enabled; PI CODE label: disabled; Gap: 2; State: error");
@@ -478,7 +657,21 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   events.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "error" }] }, context);
   renderedColors.length = 0;
   widget.render(80);
+  assert.equal(renderedColors.every((color) => color === "thinkingText"), true);
+  events.get("agent_settled")?.({}, context);
+  renderedColors.length = 0;
+  widget.render(80);
   assert.equal(renderedColors.every((color) => color === "error"), true);
+
+  events.get("agent_start")?.({}, context);
+  events.get("agent_end")?.({}, context);
+  renderedColors.length = 0;
+  widget.render(80);
+  assert.equal(renderedColors.every((color) => color === "thinkingText"), true);
+  events.get("agent_settled")?.({}, context);
+  renderedColors.length = 0;
+  widget.render(80);
+  assert.equal(renderedColors.every((color) => color === "success"), true);
 
   widget.dispose?.();
   sessionStart({}, {
@@ -501,6 +694,7 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   ]);
   events.get("agent_start")?.({}, context);
   events.get("agent_end")?.({}, context);
+  events.get("agent_settled")?.({}, context);
   renderedColors.length = 0;
   restoredWidget.render(80);
   assert.equal(renderedColors.every((color) => color === "success"), true);

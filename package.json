@@ -1,6 +1,6 @@
 {
   "name": "pi-claude-mascot",
-  "version": "1.9.4",
+  "version": "1.10.0",
   "description": "Theme-aware pixel-art mascot widget for Pi, rendered above the editor.",
   "keywords": [
     "pi-package",
@@ -21,14 +21,23 @@
   ],
   "scripts": {
     "test": "node --test --experimental-strip-types test/mascot-widget.test.ts",
+    "typecheck": "tsc --noEmit",
     "pack:check": "npm pack --dry-run",
-    "prepublishOnly": "npm test && npm run pack:check"
+    "pack:smoke": "node scripts/pack-smoke.mjs",
+    "release:verify": "node scripts/verify-published.mjs",
+    "prepublishOnly": "npm test && npm run typecheck && npm run pack:check && npm run pack:smoke"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.6.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.83.0",
+    "@earendil-works/pi-tui": "0.83.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.9.2"
   },
   "repository": {
     "type": "git",
@@ -42,5 +51,8 @@
     "extensions": [
       "./extensions"
     ]
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.10.0 - 2026-08-05
+
+- Restored branch-specific preferences after Pi `/tree` navigation.
+- Delayed final success/error state until `agent_settled`, covering retries, compaction retries, and queued follow-ups.
+- Hid the complete fixed widget when the terminal is too narrow instead of allowing overflow, crop, or wrapping.
+- Added command argument completions, home-relative preference paths, and one-time warnings for unavailable global persistence.
+- Replaced real-time animation waits with deterministic Node test timers.
+- Added strict TypeScript checking, pinned Pi development API types, packed-artifact smoke testing, and post-publication verification.
+- npm publication remains manual.
+
 ## 1.9.4 - 2026-08-04
 
 - Hardened global preference reads against relative paths, non-regular files, and files larger than 4 KiB.

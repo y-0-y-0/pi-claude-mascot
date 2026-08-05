@@ -16,6 +16,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
+import type { AutocompleteItem } from "@earendil-works/pi-tui";
 import type { ExtensionAPI, ExtensionContext, ThemeColor } from "@earendil-works/pi-coding-agent";
 
 const DEFAULT_GAP = 2;
@@ -73,6 +74,15 @@ export type MascotPreferences = {
   gap: number;
 };
 
+const INITIAL_PREFERENCES: MascotPreferences = {
+  enabled: true,
+  showLabel: true,
+  gap: DEFAULT_GAP,
+};
+
+type MascotSettledState = "success" | "error";
+type MascotWarningNotifier = (message: string) => void;
+
 export type MascotCommand =
   | { type: "toggle" }
   | { type: "set-enabled"; value: boolean }
@@ -83,6 +93,23 @@ export type MascotCommand =
   | { type: "reset" }
   | { type: "help" }
   | { type: "invalid" };
+
+const MASCOT_ARGUMENT_COMPLETIONS: readonly AutocompleteItem[] = [
+  { value: "on", label: "on", description: "Enable mascot" },
+  { value: "off", label: "off", description: "Disable mascot" },
+  { value: "label", label: "label", description: "Toggle PI CODE label" },
+  { value: "label on", label: "label on", description: "Show PI CODE label" },
+  { value: "label off", label: "label off", description: "Hide PI CODE label" },
+  { value: "gap", label: "gap", description: "Set spacing from 0 to 8" },
+  ...Array.from({ length: MAX_GAP + 1 }, (_, value) => ({
+    value: `gap ${value}`,
+    label: `gap ${value}`,
+    description: `Set mascot gap to ${value}`,
+  })),
+  { value: "status", label: "status", description: "Show current settings and state" },
+  { value: "reset", label: "reset", description: "Restore default settings" },
+  { value: "help", label: "help", description: "Show command help" },
+];
 
 export function normalizeGap(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_GAP;
@@ -104,15 +131,21 @@ export function isMascotPreferences(value: unknown): value is MascotPreferences 
 }
 
 export function getGlobalPreferencesPath(): string {
-  const configuredPath = process.env[MASCOT_GLOBAL_PREFERENCES_ENV]?.trim();
+  const configuredPath = expandHomePath(process.env[MASCOT_GLOBAL_PREFERENCES_ENV]?.trim() ?? "");
   if (configuredPath && isAbsolute(configuredPath)) return configuredPath;
 
-  const configuredAgentDir = process.env.PI_CODING_AGENT_DIR?.trim();
+  const configuredAgentDir = expandHomePath(process.env.PI_CODING_AGENT_DIR?.trim() ?? "");
   const agentDir =
     configuredAgentDir && isAbsolute(configuredAgentDir)
       ? configuredAgentDir
       : join(homedir(), ".pi", "agent");
   return join(agentDir, "pi-claude-mascot.json");
+}
+
+function expandHomePath(value: string): string {
+  if (value === "~") return homedir();
+  if (value.startsWith("~/") || value.startsWith("~\\")) return join(homedir(), value.slice(2));
+  return value;
 }
 
 export function readGlobalPreferences(filePath = getGlobalPreferencesPath()): MascotPreferences | undefined {
@@ -154,12 +187,13 @@ export function readGlobalPreferences(filePath = getGlobalPreferencesPath()): Ma
 export function writeGlobalPreferences(
   preferences: MascotPreferences,
   filePath = getGlobalPreferencesPath(),
-): void {
-  if (!isMascotPreferences(preferences) || !isAbsolute(filePath)) return;
+): boolean {
+  if (!isMascotPreferences(preferences) || !isAbsolute(filePath)) return false;
 
   let temporaryPath: string | undefined;
   let temporaryFileDescriptor: number | undefined;
   let temporaryFileCreated = false;
+  let persisted = false;
 
   try {
     const generatedTemporaryPath = `${filePath}.${process.pid}.${randomBytes(16).toString("hex")}.tmp`;
@@ -172,6 +206,7 @@ export function writeGlobalPreferences(
     temporaryFileDescriptor = undefined;
     renameSync(generatedTemporaryPath, filePath);
     temporaryFileCreated = false;
+    persisted = true;
   } catch {
     // Session persistence remains available if global file storage is unavailable.
   } finally {
@@ -190,6 +225,7 @@ export function writeGlobalPreferences(
       }
     }
   }
+  return persisted;
 }
 
 export function isMascotAnimatedState(state: MascotState): boolean {
@@ -243,6 +279,12 @@ export function parseMascotCommand(args: string): MascotCommand {
   return { type: "invalid" };
 }
 
+export function getMascotArgumentCompletions(argumentPrefix: string): AutocompleteItem[] | null {
+  const prefix = argumentPrefix.trimStart().toLowerCase();
+  const matching = MASCOT_ARGUMENT_COMPLETIONS.filter((item) => item.value.startsWith(prefix));
+  return matching.length > 0 ? matching : null;
+}
+
 export function formatMascotStatus(
   enabled: boolean,
   showLabel: boolean,
@@ -269,29 +311,38 @@ export function renderMascot(
   return mascotRows.map((row, index) => `${row}${gap}${colorize(PI_CODE_ART[index] ?? "")}`);
 }
 
+export function getMascotRenderWidth(options: MascotRenderOptions = {}): number {
+  return Math.max(0, ...renderMascot((text) => text, options).map((line) => line.length));
+}
+
 export default function (pi: ExtensionAPI): void {
-  let enabled = true;
-  let showLabel = true;
-  let gap = DEFAULT_GAP;
+  let enabled = INITIAL_PREFERENCES.enabled;
+  let showLabel = INITIAL_PREFERENCES.showLabel;
+  let gap = INITIAL_PREFERENCES.gap;
   let state: MascotState = "idle";
   let activeToolCalls = new Set<string>();
   let failedToolCalls = new Set<string>();
+  let pendingAgentState: MascotSettledState | undefined;
+  let globalPersistenceWarningShown = false;
   let requestRender: (() => void) | undefined;
   let setSparkleAnimation: ((active: boolean) => void) | undefined;
 
-  const persistPreferences = (): void => {
+  const persistPreferences = (notifyWarning?: MascotWarningNotifier): void => {
     const preferences: MascotPreferences = {
       enabled,
       showLabel,
       gap,
     };
     pi.appendEntry<MascotPreferences>(MASCOT_PREFERENCES_TYPE, preferences);
-    writeGlobalPreferences(preferences);
+    if (!writeGlobalPreferences(preferences) && !globalPersistenceWarningShown) {
+      globalPersistenceWarningShown = true;
+      notifyWarning?.("Mascot global preferences could not be saved; session preferences remain available.");
+    }
   };
 
   const getPreferences = (): MascotPreferences => ({ enabled, showLabel, gap });
 
-  const updatePreferences = (next: MascotPreferences): boolean => {
+  const updatePreferences = (next: MascotPreferences, notifyWarning?: MascotWarningNotifier): boolean => {
     const current = getPreferences();
     if (
       current.enabled === next.enabled &&
@@ -306,27 +357,32 @@ export default function (pi: ExtensionAPI): void {
     gap = next.gap;
     setSparkleAnimation?.(enabled && isMascotAnimatedState(state));
     requestRender?.();
-    persistPreferences();
+    persistPreferences(notifyWarning);
     return true;
   };
 
-  const restorePreferences = (ctx: ExtensionContext): void => {
+  const restorePreferences = (ctx: ExtensionContext): boolean => {
+    const current = getPreferences();
+    let restored = INITIAL_PREFERENCES;
     const globalPreferences = readGlobalPreferences();
-    if (globalPreferences) {
-      enabled = globalPreferences.enabled;
-      showLabel = globalPreferences.showLabel;
-      gap = globalPreferences.gap;
-    }
+    if (globalPreferences) restored = globalPreferences;
 
     for (const entry of [...ctx.sessionManager.getBranch()].reverse()) {
       if (entry.type !== "custom" || entry.customType !== MASCOT_PREFERENCES_TYPE) continue;
       if (!isMascotPreferences(entry.data)) continue;
 
-      enabled = entry.data.enabled;
-      showLabel = entry.data.showLabel;
-      gap = entry.data.gap;
-      return;
+      restored = entry.data;
+      break;
     }
+
+    enabled = restored.enabled;
+    showLabel = restored.showLabel;
+    gap = restored.gap;
+    return (
+      current.enabled !== restored.enabled ||
+      current.showLabel !== restored.showLabel ||
+      current.gap !== restored.gap
+    );
   };
 
   const setState = (nextState: MascotState): void => {
@@ -365,14 +421,18 @@ export default function (pi: ExtensionAPI): void {
 
       return {
         // State and sparkle frame are read during every render.
-        render: (_width: number): string[] =>
-          enabled
-            ? renderMascot((text) => theme.fg(MASCOT_STATE_COLORS[state], text), {
-                showLabel,
-                gap,
-                sparkle: MASCOT_SPARKLE_FRAMES[sparkleIndex],
-              })
-            : [],
+        render: (width: number): string[] => {
+          if (!enabled || !Number.isFinite(width)) return [];
+
+          const options: MascotRenderOptions = {
+            showLabel,
+            gap,
+            sparkle: MASCOT_SPARKLE_FRAMES[sparkleIndex] ?? MASCOT_SPARKLE_FRAMES[0],
+          };
+          if (width < getMascotRenderWidth(options)) return [];
+
+          return renderMascot((text) => theme.fg(MASCOT_STATE_COLORS[state], text), options);
+        },
         invalidate(): void {},
         dispose(): void {
           stopSparkle();
@@ -385,35 +445,37 @@ export default function (pi: ExtensionAPI): void {
 
   pi.registerCommand("mascot", {
     description: "Control mascot: on, off, label, gap, status, reset, or help",
+    getArgumentCompletions: getMascotArgumentCompletions,
     handler: async (args, ctx) => {
       const command = parseMascotCommand(args);
+      const notifyPersistenceWarning: MascotWarningNotifier = (message) => ctx.ui.notify(message, "warning");
 
       if (command.type === "toggle") {
-        updatePreferences({ ...getPreferences(), enabled: !enabled });
+        updatePreferences({ ...getPreferences(), enabled: !enabled }, notifyPersistenceWarning);
         ctx.ui.notify(`Mascot ${enabled ? "enabled" : "disabled"}`, "info");
         return;
       }
 
       if (command.type === "set-enabled") {
-        updatePreferences({ ...getPreferences(), enabled: command.value });
+        updatePreferences({ ...getPreferences(), enabled: command.value }, notifyPersistenceWarning);
         ctx.ui.notify(`Mascot ${enabled ? "enabled" : "disabled"}`, "info");
         return;
       }
 
       if (command.type === "toggle-label") {
-        updatePreferences({ ...getPreferences(), showLabel: !showLabel });
+        updatePreferences({ ...getPreferences(), showLabel: !showLabel }, notifyPersistenceWarning);
         ctx.ui.notify(`PI CODE label ${showLabel ? "enabled" : "disabled"}`, "info");
         return;
       }
 
       if (command.type === "set-label") {
-        updatePreferences({ ...getPreferences(), showLabel: command.value });
+        updatePreferences({ ...getPreferences(), showLabel: command.value }, notifyPersistenceWarning);
         ctx.ui.notify(`PI CODE label ${showLabel ? "enabled" : "disabled"}`, "info");
         return;
       }
 
       if (command.type === "set-gap") {
-        updatePreferences({ ...getPreferences(), gap: command.value });
+        updatePreferences({ ...getPreferences(), gap: command.value }, notifyPersistenceWarning);
         ctx.ui.notify(`Mascot gap: ${gap}`, "info");
         return;
       }
@@ -424,7 +486,7 @@ export default function (pi: ExtensionAPI): void {
       }
 
       if (command.type === "reset") {
-        updatePreferences({ enabled: true, showLabel: false, gap: DEFAULT_GAP });
+        updatePreferences({ enabled: true, showLabel: false, gap: DEFAULT_GAP }, notifyPersistenceWarning);
         ctx.ui.notify("Mascot settings reset", "info");
         return;
       }
@@ -439,19 +501,28 @@ export default function (pi: ExtensionAPI): void {
   });
 
   pi.on("session_start", (_event, ctx) => {
+    globalPersistenceWarningShown = false;
     setSparkleAnimation?.(false);
     setSparkleAnimation = undefined;
     requestRender = undefined;
     state = "idle";
     activeToolCalls = new Set<string>();
     failedToolCalls = new Set<string>();
+    pendingAgentState = undefined;
     restorePreferences(ctx);
     installWidget(ctx);
+  });
+
+  pi.on("session_tree", (_event, ctx) => {
+    const changed = restorePreferences(ctx);
+    setSparkleAnimation?.(enabled && isMascotAnimatedState(state));
+    if (changed) requestRender?.();
   });
 
   pi.on("agent_start", () => {
     activeToolCalls = new Set<string>();
     failedToolCalls = new Set<string>();
+    pendingAgentState = undefined;
     setState("thinking");
   });
 
@@ -479,7 +550,15 @@ export default function (pi: ExtensionAPI): void {
 
   pi.on("agent_end", (event) => {
     activeToolCalls.clear();
-    setState(failedToolCalls.size > 0 || hasAgentFailure(event.messages) ? "error" : "success");
+    pendingAgentState = failedToolCalls.size > 0 || hasAgentFailure(event.messages) ? "error" : "success";
+    setState("thinking");
+  });
+
+  pi.on("agent_settled", () => {
+    const settledState = pendingAgentState ?? (failedToolCalls.size > 0 ? "error" : "success");
+    pendingAgentState = undefined;
+    failedToolCalls = new Set<string>();
+    setState(settledState);
   });
 
 }
