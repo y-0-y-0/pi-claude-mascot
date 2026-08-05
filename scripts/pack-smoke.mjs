@@ -7,13 +7,14 @@ import { fileURLToPath } from "node:url";
 const packageRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const temporaryDirectory = mkdtempSync(join(tmpdir(), "pi-claude-mascot-pack-"));
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmEnvironment = { ...process.env, npm_config_dry_run: "false" };
 
 try {
   const packed = JSON.parse(
     execFileSync(
       npmCommand,
       ["pack", "--json", "--pack-destination", temporaryDirectory],
-      { cwd: packageRoot, encoding: "utf8" },
+      { cwd: packageRoot, encoding: "utf8", env: npmEnvironment },
     ),
   );
   const packInfo = Array.isArray(packed) ? packed[0] : Object.values(packed)[0];
@@ -26,7 +27,7 @@ try {
   execFileSync(
     npmCommand,
     ["install", "--ignore-scripts", "--no-save", "--omit=peer", tarballPath],
-    { cwd: temporaryDirectory, stdio: "pipe" },
+    { cwd: temporaryDirectory, stdio: "pipe", env: npmEnvironment },
   );
 
   const installedRoot = join(temporaryDirectory, "node_modules", "pi-claude-mascot");

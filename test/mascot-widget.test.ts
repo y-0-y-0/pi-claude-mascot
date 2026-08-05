@@ -16,6 +16,7 @@ import registerMascot, {
   MASCOT_USAGE,
   MASCOT_STATE_COLORS,
   PI_CODE_ART,
+  WITTY_LOADING_PHRASES_INTERVAL_MS,
   formatMascotStatus,
   getMascotArgumentCompletions,
   getGlobalPreferencesPath,
@@ -28,6 +29,7 @@ import registerMascot, {
   readGlobalPreferences,
   writeGlobalPreferences,
 } from "../extensions/mascot-widget.ts";
+import { WITTY_LOADING_PHRASES } from "../extensions/witty-phrases.ts";
 
 const TEST_GLOBAL_PREFERENCES_DIRECTORY = mkdtempSync(join(tmpdir(), "pi-claude-mascot-test-"));
 const TEST_GLOBAL_PREFERENCES_PATH = join(TEST_GLOBAL_PREFERENCES_DIRECTORY, "preferences.json");
@@ -58,6 +60,7 @@ type MascotContext = {
       factory: (tui: { requestRender(): void }, theme: MascotTheme) => MascotWidget,
     ): void;
     notify(message: string, type?: "info" | "warning" | "error"): void;
+    setWorkingMessage?(message: string): void;
   };
   sessionManager: {
     getBranch(): Array<{ type: string; customType?: string; data?: unknown }>;
@@ -152,6 +155,64 @@ test("hides the complete widget when fixed artwork cannot fit the terminal width
   assert.deepEqual(widget.render(44), []);
   assert.deepEqual(widget.render(45), EXPECTED_LINES);
   widget.dispose?.();
+});
+
+test("replaces Pi's working message with every vendored witty phrase", (testContext) => {
+  let sessionStart: MascotHandler | undefined;
+  const events = new Map<string, MascotHandler>();
+  const workingMessages: string[] = [];
+  const pi = {
+    registerCommand(): void {},
+    on(event: string, handler: MascotHandler): void {
+      events.set(event, handler);
+      if (event === "session_start") sessionStart = handler;
+    },
+  } as unknown as ExtensionAPI;
+  const context: MascotContext = {
+    ui: {
+      setWidget(): void {},
+      notify(): void {},
+      setWorkingMessage(message): void {
+        workingMessages.push(message);
+      },
+    },
+    sessionManager: { getBranch: () => [] },
+  };
+
+  assert.ok(WITTY_LOADING_PHRASES.length > 100);
+  assert.equal(WITTY_LOADING_PHRASES[0], "I'm Feeling Lucky");
+  assert.equal(WITTY_LOADING_PHRASES.at(-1), "Pushing the button, Frank.");
+  assert.equal(WITTY_LOADING_PHRASES_INTERVAL_MS, 2500);
+
+  registerMascot(pi);
+  sessionStart?.({}, context);
+  assert.deepEqual(workingMessages, [WITTY_LOADING_PHRASES[0]]);
+
+  testContext.mock.timers.enable({ apis: ["setInterval"] });
+  try {
+    events.get("agent_start")?.({}, context);
+    testContext.mock.timers.tick(WITTY_LOADING_PHRASES_INTERVAL_MS);
+    testContext.mock.timers.tick(WITTY_LOADING_PHRASES_INTERVAL_MS);
+    assert.deepEqual(workingMessages, [
+      WITTY_LOADING_PHRASES[0],
+      WITTY_LOADING_PHRASES[1],
+      WITTY_LOADING_PHRASES[2],
+    ]);
+
+    events.get("agent_end")?.({}, context);
+    events.get("agent_settled")?.({}, context);
+    const messagesAfterSettled = workingMessages.length;
+    testContext.mock.timers.tick(WITTY_LOADING_PHRASES_INTERVAL_MS);
+    assert.equal(workingMessages.length, messagesAfterSettled);
+
+    events.get("agent_start")?.({}, context);
+    assert.equal(workingMessages.at(-1), WITTY_LOADING_PHRASES[0]);
+    events.get("agent_end")?.({}, context);
+    events.get("agent_settled")?.({}, context);
+  } finally {
+    events.get("session_shutdown")?.({}, context);
+    testContext.mock.timers.reset();
+  }
 });
 
 test("restores branch-specific preferences after session tree navigation", () => {

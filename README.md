@@ -30,6 +30,8 @@ Mascot displays a sparkle immediately after its first row. It stays on `·` when
 
 The artwork never wraps or crops. If the terminal is narrower than the current fixed layout, the complete widget hides until enough width is available. With the label hidden, the mascot can still render in a narrow terminal.
 
+Pi's default `Working...` message is replaced by the complete witty phrase list vendored from [Gemini CLI's `wittyPhrases.ts`](https://github.com/google-gemini/gemini-cli/blob/main/packages/cli/src/ui/constants/wittyPhrases.ts). A new phrase appears every 2.5 seconds while an agent run is active; the timer stops when Pi settles the run. The package does not depend on a local Gemini CLI installation.
+
 ## Commands
 
 ```text

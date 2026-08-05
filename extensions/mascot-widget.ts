@@ -18,6 +18,7 @@ import {
 import { dirname, isAbsolute, join } from "node:path";
 import type { AutocompleteItem } from "@earendil-works/pi-tui";
 import type { ExtensionAPI, ExtensionContext, ThemeColor } from "@earendil-works/pi-coding-agent";
+import { WITTY_LOADING_PHRASES } from "./witty-phrases.ts";
 
 const DEFAULT_GAP = 2;
 const MAX_GAP = 8;
@@ -27,6 +28,7 @@ export const MASCOT_GLOBAL_PREFERENCES_ENV = "PI_CLAUDE_MASCOT_PREFERENCES_PATH"
 export const MASCOT_USAGE = "Usage: /mascot [on|off|label [on|off]|gap 0-8|status|reset|help]";
 export const MASCOT_SPARKLE_FRAMES = ["·", "✢", "✶", "✻", "✽", "✻", "✶", "✢", "·"] as const;
 export const MASCOT_SPARKLE_INTERVAL_MS = 200;
+export const WITTY_LOADING_PHRASES_INTERVAL_MS = 2500;
 export const MASCOT_HELP = [
   "/mascot             Toggle mascot",
   "/mascot on|off      Enable or disable mascot",
@@ -326,6 +328,33 @@ export default function (pi: ExtensionAPI): void {
   let globalPersistenceWarningShown = false;
   let requestRender: (() => void) | undefined;
   let setSparkleAnimation: ((active: boolean) => void) | undefined;
+  let setWorkingMessage: ((message: string) => void) | undefined;
+  let wittyPhraseTimer: ReturnType<typeof setInterval> | undefined;
+  let wittyPhraseIndex = 0;
+  let wittyPhraseNeedsInitialMessage = false;
+
+  const stopWittyPhraseRotation = (): void => {
+    if (wittyPhraseTimer !== undefined) clearInterval(wittyPhraseTimer);
+    wittyPhraseTimer = undefined;
+    wittyPhraseIndex = 0;
+    wittyPhraseNeedsInitialMessage = true;
+  };
+
+  const advanceWittyPhrase = (): void => {
+    wittyPhraseIndex = (wittyPhraseIndex + 1) % WITTY_LOADING_PHRASES.length;
+    setWorkingMessage?.(WITTY_LOADING_PHRASES[wittyPhraseIndex] ?? WITTY_LOADING_PHRASES[0]);
+  };
+
+  const startWittyPhraseRotation = (): void => {
+    if (setWorkingMessage === undefined || wittyPhraseTimer !== undefined) return;
+    if (wittyPhraseNeedsInitialMessage) {
+      setWorkingMessage(WITTY_LOADING_PHRASES[0] ?? "Working...");
+      wittyPhraseNeedsInitialMessage = false;
+    }
+    wittyPhraseTimer = setInterval(advanceWittyPhrase, WITTY_LOADING_PHRASES_INTERVAL_MS);
+    const timerWithUnref = wittyPhraseTimer as unknown as { unref?: () => void };
+    timerWithUnref.unref?.();
+  };
 
   const persistPreferences = (notifyWarning?: MascotWarningNotifier): void => {
     const preferences: MascotPreferences = {
@@ -503,14 +532,23 @@ export default function (pi: ExtensionAPI): void {
   pi.on("session_start", (_event, ctx) => {
     globalPersistenceWarningShown = false;
     setSparkleAnimation?.(false);
+    stopWittyPhraseRotation();
     setSparkleAnimation = undefined;
     requestRender = undefined;
+    setWorkingMessage = ctx.ui.setWorkingMessage?.bind(ctx.ui);
+    setWorkingMessage?.(WITTY_LOADING_PHRASES[0] ?? "Working...");
+    wittyPhraseNeedsInitialMessage = false;
     state = "idle";
     activeToolCalls = new Set<string>();
     failedToolCalls = new Set<string>();
     pendingAgentState = undefined;
     restorePreferences(ctx);
     installWidget(ctx);
+  });
+
+  pi.on("session_shutdown", () => {
+    stopWittyPhraseRotation();
+    setWorkingMessage = undefined;
   });
 
   pi.on("session_tree", (_event, ctx) => {
@@ -523,6 +561,7 @@ export default function (pi: ExtensionAPI): void {
     activeToolCalls = new Set<string>();
     failedToolCalls = new Set<string>();
     pendingAgentState = undefined;
+    startWittyPhraseRotation();
     setState("thinking");
   });
 
@@ -555,6 +594,7 @@ export default function (pi: ExtensionAPI): void {
   });
 
   pi.on("agent_settled", () => {
+    stopWittyPhraseRotation();
     const settledState = pendingAgentState ?? (failedToolCalls.size > 0 ? "error" : "success");
     pendingAgentState = undefined;
     failedToolCalls = new Set<string>();

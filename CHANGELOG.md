@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.11.0 - 2026-08-05
+
+- Replaced Pi's default `Working...` message with the complete vendored Gemini CLI witty phrase list.
+- Rotated witty loading phrases every 2.5 seconds during active agent runs and stopped rotation on `agent_settled`.
+- Kept the phrase source portable by avoiding a runtime dependency on a local Gemini CLI installation.
+- Kept packed-artifact smoke testing compatible with `npm publish --dry-run`.
+- npm publication remains manual.
+
 ## 1.10.2 - 2026-08-05
 
 - Changed the sparkle animation interval from 120 ms to 200 ms.
