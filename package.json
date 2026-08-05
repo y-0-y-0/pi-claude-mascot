@@ -1,6 +1,6 @@
 {
   "name": "pi-claude-mascot",
-  "version": "1.10.0",
+  "version": "1.10.2",
   "description": "Theme-aware pixel-art mascot widget for Pi, rendered above the editor.",
   "keywords": [
     "pi-package",

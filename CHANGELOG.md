@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.10.2 - 2026-08-05
+
+- Changed the sparkle animation interval from 120 ms to 200 ms.
+- npm publication remains manual.
+
 ## 1.10.0 - 2026-08-05
 
 - Restored branch-specific preferences after Pi `/tree` navigation.

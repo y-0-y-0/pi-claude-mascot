@@ -26,7 +26,7 @@ Mascot and supplied `PI CODE` artwork render side by side at the same three-row 
 
 Mascot keeps fixed pixel geometry beside supplied three-row `PI CODE` artwork. Both use matching block characters, with no crop. Example below shows label visible and idle sparkle `·`.
 
-Mascot displays a sparkle immediately after its first row. It stays on `·` when idle, after success, or after error. It cycles through `· ✢ ✶ ✻ ✽ ✻ ✶ ✢ ·` every 120 ms only while Pi is thinking or executing work. Animation uses the existing widget and is cleaned up when Pi disposes it.
+Mascot displays a sparkle immediately after its first row. It stays on `·` when idle, after success, or after error. It cycles through `· ✢ ✶ ✻ ✽ ✻ ✶ ✢ ·` every 200 ms only while Pi is thinking or executing work. Animation uses the existing widget and is cleaned up when Pi disposes it.
 
 The artwork never wraps or crops. If the terminal is narrower than the current fixed layout, the complete widget hides until enough width is available. With the label hidden, the mascot can still render in a narrow terminal.
 

@@ -258,7 +258,7 @@ test("offers strict command completions for mascot controls", () => {
 });
 
 test("renders requested sparkle frame and exposes animation timing", () => {
-  assert.equal(MASCOT_SPARKLE_INTERVAL_MS, 120);
+  assert.equal(MASCOT_SPARKLE_INTERVAL_MS, 200);
   assert.deepEqual(MASCOT_SPARKLE_FRAMES, ["·", "✢", "✶", "✻", "✽", "✻", "✶", "✢", "·"]);
   assert.equal(
     renderMascot((text) => text, { showLabel: false, sparkle: "✽" })[0],
