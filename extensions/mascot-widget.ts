@@ -570,6 +570,11 @@ export default function (pi: ExtensionAPI): void {
   });
 
   pi.on("tool_execution_start", (event) => {
+    // A new sequential tool attempt can recover from an earlier failed call, even with a new ID.
+    // Keep failures from overlapping calls: those tool executions are tracked as one concurrent wave.
+    if (activeToolCalls.size === 0 && failedToolCalls.size > 0) {
+      failedToolCalls = new Set<string>();
+    }
     activeToolCalls.add(event.toolCallId);
     failedToolCalls.delete(event.toolCallId);
     setState("working");
