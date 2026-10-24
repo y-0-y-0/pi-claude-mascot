@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Included the Apache-2.0 license and third-party attribution for the vendored Gemini CLI witty loading phrases.
+- Added packaging checks for third-party license files, retry recovery with new tool-call IDs, timer cleanup, and failed preference-write cleanup.
+- Corrected repository links and documented the Node.js minimum for the full development toolchain.
+
+
 ## 1.11.0 - 2026-08-05
 
 - Replaced Pi's default `Working...` message with the complete vendored Gemini CLI witty phrase list.
