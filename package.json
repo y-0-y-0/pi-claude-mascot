@@ -17,7 +17,9 @@
     "test",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "LICENSE-APACHE-2.0.txt",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "scripts": {
     "test": "node --test --experimental-strip-types test/mascot-widget.test.ts",
@@ -28,7 +30,7 @@
     "prepublishOnly": "npm test && npm run typecheck && npm run pack:check && npm run pack:smoke"
   },
   "engines": {
-    "node": ">=22.6.0"
+    "node": ">=22.19.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
@@ -41,12 +43,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yoyo406/pi-claude-mascot.git"
+    "url": "git+https://github.com/y-0-y-0/pi-claude-mascot.git"
   },
   "bugs": {
-    "url": "https://github.com/yoyo406/pi-claude-mascot/issues"
+    "url": "https://github.com/y-0-y-0/pi-claude-mascot/issues"
   },
-  "homepage": "https://github.com/yoyo406/pi-claude-mascot#readme",
+  "homepage": "https://github.com/y-0-y-0/pi-claude-mascot#readme",
   "pi": {
     "extensions": [
       "./extensions"
