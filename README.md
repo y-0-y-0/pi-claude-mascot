@@ -32,6 +32,8 @@ The artwork never wraps or crops. If the terminal is narrower than the current f
 
 Pi's default `Working...` message is replaced by the complete witty phrase list vendored from [Gemini CLI's `wittyPhrases.ts`](https://github.com/google-gemini/gemini-cli/blob/main/packages/cli/src/ui/constants/wittyPhrases.ts). A new phrase appears every 2.5 seconds while an agent run is active; the timer stops when Pi settles the run. The package does not depend on a local Gemini CLI installation.
 
+The phrase list is third-party code from Gemini CLI and remains under Apache-2.0. The repository and npm package include the required license copy and attribution in [`LICENSE-APACHE-2.0.txt`](./LICENSE-APACHE-2.0.txt) and [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md). The project's original code remains MIT-licensed.
+
 ## Commands
 
 ```text
@@ -77,7 +79,7 @@ Background remains transparent. Rendering uses plain Unicode block characters an
 
 ## Development
 
-Requires Node.js 22.6+, matching the minimum version that supports the native TypeScript test runner flag used by this package.
+Use Node.js 22.19 or newer for the complete development and test toolchain pinned in `package-lock.json`. The native TypeScript test runner flag alone is available from Node.js 22.6, but the pinned Pi development dependencies declare Node.js 22.19 as their minimum.
 
 ```bash
 npm ci
