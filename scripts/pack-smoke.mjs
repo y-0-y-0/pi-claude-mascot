@@ -43,6 +43,23 @@ try {
   } catch (error) {
     throw new Error(`Packed package is missing its extension entry at ${extensionPath}`, { cause: error });
   }
+
+  for (const [fileName, description] of [
+    ["LICENSE-APACHE-2.0.txt", "Apache-2.0 license copy"],
+    ["THIRD_PARTY_NOTICES.md", "third-party notices"],
+  ]) {
+    const filePath = join(installedRoot, fileName);
+    try {
+      readFileSync(filePath, "utf8");
+    } catch (error) {
+      throw new Error(`Packed package is missing ${description} at ${filePath}`, { cause: error });
+    }
+  }
+
+  const thirdPartyNotices = readFileSync(join(installedRoot, "THIRD_PARTY_NOTICES.md"), "utf8");
+  if (!thirdPartyNotices.includes("extensions/witty-phrases.ts") || !thirdPartyNotices.includes("Apache-2.0")) {
+    throw new Error("Packed third-party notices do not identify the vendored witty phrases and their license");
+  }
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true });
 }
