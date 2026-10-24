@@ -2,7 +2,7 @@ import { strict as assert } from "node:assert";
 import { join } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { after, beforeEach, test } from "node:test";
-import { existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import registerMascot, {
@@ -209,6 +209,12 @@ test("replaces Pi's working message with every vendored witty phrase", (testCont
     assert.equal(workingMessages.at(-1), WITTY_LOADING_PHRASES[0]);
     events.get("agent_end")?.({}, context);
     events.get("agent_settled")?.({}, context);
+
+    events.get("agent_start")?.({}, context);
+    const messagesBeforeShutdown = workingMessages.length;
+    events.get("session_shutdown")?.({}, context);
+    testContext.mock.timers.tick(WITTY_LOADING_PHRASES_INTERVAL_MS);
+    assert.equal(workingMessages.length, messagesBeforeShutdown);
   } finally {
     events.get("session_shutdown")?.({}, context);
     testContext.mock.timers.reset();
@@ -513,6 +519,22 @@ test("persists preferences globally for new sessions", async () => {
   widget.dispose?.();
 });
 
+test("cleans up temporary preference files when atomic replacement fails", () => {
+  const destination = join(TEST_GLOBAL_PREFERENCES_DIRECTORY, "existing-directory.json");
+  mkdirSync(destination);
+
+  try {
+    assert.equal(writeGlobalPreferences({ enabled: true, showLabel: false, gap: 2 }, destination), false);
+    assert.deepEqual(
+      readdirSync(TEST_GLOBAL_PREFERENCES_DIRECTORY).filter((entry) => entry.endsWith(".tmp")),
+      [],
+    );
+    assert.deepEqual(readdirSync(destination), []);
+  } finally {
+    rmSync(destination, { recursive: true, force: true });
+  }
+});
+
 test("ignores malformed global preferences and keeps preference file private", () => {
   assert.equal(writeGlobalPreferences({ enabled: true, showLabel: false, gap: 2 }), true);
   assert.equal(statSync(TEST_GLOBAL_PREFERENCES_PATH).mode & 0o777, 0o600);
@@ -710,6 +732,15 @@ test("handles strict mascot commands, persistence, and live widget updates", asy
   events.get("tool_execution_end")?.({ toolCallId: "retry", isError: true }, context);
   events.get("tool_execution_start")?.({ toolCallId: "retry" }, context);
   events.get("tool_execution_end")?.({ toolCallId: "retry", isError: false }, context);
+  renderedColors.length = 0;
+  widget.render(80);
+  assert.equal(renderedColors.every((color) => color === "thinkingText"), true);
+
+  events.get("agent_start")?.({}, context);
+  events.get("tool_execution_start")?.({ toolCallId: "retry-failed-id" }, context);
+  events.get("tool_execution_end")?.({ toolCallId: "retry-failed-id", isError: true }, context);
+  events.get("tool_execution_start")?.({ toolCallId: "retry-success-id" }, context);
+  events.get("tool_execution_end")?.({ toolCallId: "retry-success-id", isError: false }, context);
   renderedColors.length = 0;
   widget.render(80);
   assert.equal(renderedColors.every((color) => color === "thinkingText"), true);
